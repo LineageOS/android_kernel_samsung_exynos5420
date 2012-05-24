@@ -383,6 +383,12 @@ static int attempt_merge(struct request_queue *q, struct request *req,
 		return 0;
 
 	/*
+	 * Don't merge file system requests and sanitize requests
+	 */
+	if ((req->cmd_flags & REQ_SANITIZE) != (next->cmd_flags & REQ_SANITIZE))
+		return 0;
+
+	/*
 	 * not contiguous
 	 */
 	if (blk_rq_pos(req) + blk_rq_sectors(req) != blk_rq_pos(next))
@@ -484,6 +490,12 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 	/* don't merge discard requests and secure discard requests */
 	if ((bio->bi_rw & REQ_SECURE) != (rq->bio->bi_rw & REQ_SECURE))
 		return false;
+
+	/*
+	 * Don't merge sanitize requests
+	 */
+	if ((bio->bi_rw & REQ_SANITIZE) != (rq->bio->bi_rw & REQ_SANITIZE))
+		return 0;
 
 	/* different data direction or already started, don't merge */
 	if (bio_data_dir(bio) != rq_data_dir(rq))
