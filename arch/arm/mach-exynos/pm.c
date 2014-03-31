@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/wakeup_reason.h>
 
 #include <asm/cacheflush.h>
 #include <asm/hardware/cache-l2x0.h>
@@ -482,7 +483,6 @@ static void exynos_show_wakeup_reason_eint(void)
 	extern void __iomem *exynos_eint_base;
 
 	eint_wakeup_mask = __raw_readl(EXYNOS_EINT_WAKEUP_MASK);
-
 	for (reg_eintstart = 0; reg_eintstart <= 31; reg_eintstart += 8) {
 		ext_int_pend =
 			__raw_readl(EINT_PEND(exynos_eint_base,
@@ -490,17 +490,11 @@ static void exynos_show_wakeup_reason_eint(void)
 
 		for_each_set_bit(bit, &ext_int_pend, 8) {
 			int irq = IRQ_EINT(reg_eintstart) + bit;
-			struct irq_desc *desc = irq_to_desc(irq);
 
 			if (eint_wakeup_mask & (1 << (reg_eintstart + bit)))
 				continue;
-
-			if (desc && desc->action && desc->action->name)
-				pr_info("Resume caused by IRQ %d, %s\n", irq,
-					desc->action->name);
-			else
-				pr_info("Resume caused by IRQ %d\n", irq);
-
+			/* generic api to log wakeup reason*/
+			log_wakeup_reason(irq);
 			found = 1;
 		}
 	}

@@ -28,7 +28,7 @@
 #define BKSV_RETRY_CNT		14
 #define BKSV_DELAY		100
 
-#define DDC_RETRY_CNT		400000
+#define DDC_RETRY_CNT		40
 #define DDC_DELAY		25
 
 #define KEY_LOAD_RETRY_CNT	1000

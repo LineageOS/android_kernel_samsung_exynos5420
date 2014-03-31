@@ -106,6 +106,9 @@ struct ion_buffer {
  * @map_kernel		map memory to the kernel
  * @unmap_kernel	unmap memory to the kernel
  * @map_user		map memory to userspace
+ *
+ * allocate, phys, and map_user return 0 on success, -errno on error.
+ * map_dma and map_kernel return pointer on success, ERR_PTR on error.
  */
 struct ion_heap_ops {
 	int (*allocate) (struct ion_heap *heap,
