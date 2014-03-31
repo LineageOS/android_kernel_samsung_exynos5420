@@ -507,8 +507,10 @@ static int s3c2410wdt_suspend(struct platform_device *pdev, pm_message_t state)
 	pdata = dev_get_platdata(&pdev->dev);
 	/* Save watchdog state, and turn it off. */
 	wtcon_save = readl(S3C2410_WTCON);
+	pr_info("suspend: watchdog %sabled (0x%08lx)\n",
+		(wtcon_save & S3C2410_WTCON_ENABLE) ? "en" : "dis", wtcon_save);
+	BUG_ON(!(wtcon_save & S3C2410_WTCON_ENABLE));
 	wtdat_save = readl(S3C2410_WTDAT);
-
 	/* Note that WTCNT doesn't need to be saved. */
 	s3c2410wdt_stop(&s3c2410_wdd);
 
@@ -540,9 +542,9 @@ static int s3c2410wdt_resume(struct platform_device *pdev)
 	writel(wtdat_save, S3C2410_WTDAT);
 	writel(wtdat_save, S3C2410_WTCNT); /* Reset count */
 	writel(wtcon_save, S3C2410_WTCON);
-
-	pr_info("watchdog %sabled\n",
-		(wtcon_save & S3C2410_WTCON_ENABLE) ? "en" : "dis");
+	pr_info("resume: watchdog %sabled (0x%08lx)\n",
+		(wtcon_save & S3C2410_WTCON_ENABLE) ? "en" : "dis", wtcon_save);
+	BUG_ON(!(wtcon_save & S3C2410_WTCON_ENABLE));
 
 #ifdef CONFIG_CPU_FREQ
 	wdt_resume_complete = 1;

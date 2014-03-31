@@ -72,6 +72,7 @@
 #include <linux/slab.h>
 #include <linux/init_task.h>
 #include <linux/binfmts.h>
+#include <linux/watchdog.h>  /* for touch_hw_watchdog() */
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -5077,13 +5078,15 @@ void show_state_filter(unsigned long state_filter)
 #endif
 	rcu_read_lock();
 	do_each_thread(g, p) {
-		/*
-		 * reset the NMI-timeout, listing all files on a slow
-		 * console might take a lot of time:
-		 */
-		touch_nmi_watchdog();
-		if (!state_filter || (p->state & state_filter))
+		if (!state_filter || (p->state & state_filter)) {
+			/*
+			 * reset the NMI-timeout, listing all files on a slow
+			 * console might take a lot of time:
+			 */
+			touch_nmi_watchdog();
+			touch_hw_watchdog();
 			sched_show_task(p);
+		}
 	} while_each_thread(g, p);
 
 	touch_all_softlockup_watchdogs();

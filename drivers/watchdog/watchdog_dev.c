@@ -69,6 +69,19 @@ static int watchdog_ping(struct watchdog_device *wddev)
 }
 
 /*
+ *	touch_hw_watchdog: ping the current watchdog device.
+ *
+ *	If there is no watchdog device, the nothing happens.
+ *	Otherwise we try to ping the watchdog.
+ */
+void touch_hw_watchdog(void)
+{
+	if (wdd)
+		watchdog_ping(wdd);
+}
+EXPORT_SYMBOL_GPL(touch_hw_watchdog);
+
+/*
  *	watchdog_start: wrapper to start the watchdog.
  *	@wddev: the watchdog device to start
  *
