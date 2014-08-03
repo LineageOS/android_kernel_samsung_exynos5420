@@ -112,6 +112,10 @@ static void do_boost_rem(struct work_struct *work)
 						boost_rem.work);
 
 	pr_debug("Removing boost for CPU%d\n", s->cpu);
+
+	if (unlikely(s->boost_min == 0))
+		pr_warn("%s: CPU%d removing boost that wasn't boosted.", __func__, s->cpu);
+
 	s->boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
@@ -123,6 +127,10 @@ static void do_input_boost_rem(struct work_struct *work)
 						input_boost_rem.work);
 
 	pr_debug("Removing input boost for CPU%d\n", s->cpu);
+
+	if (unlikely(s->input_boost_min == 0))
+		pr_warn("%s: CPU%d removing boost that wasn't boosted.", __func__, s->cpu);
+
 	s->input_boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
@@ -134,6 +142,10 @@ static void do_plug_boost_rem(struct work_struct *work)
 						plug_boost_rem.work);
 
 	pr_debug("Removing plug boost for CPU%d\n", s->cpu);
+
+	if (unlikely(s->plug_boost_min == 0))
+		pr_warn("%s: CPU%d removing boost that wasn't boosted.", __func__, s->cpu);
+
 	s->plug_boost_min = 0;
 	/* Force policy re-evaluation to trigger adjust notifier. */
 	cpufreq_update_policy(s->cpu);
@@ -379,10 +391,32 @@ static void do_plug_boost(struct work_struct *work)
 	put_online_cpus();
 }
 
+static void
+cpu_up_prepare(int cpu)
+{
+	struct cpu_sync *s = &per_cpu(sync_info, cpu);
+
+	if (unlikely(s->boost_min > 0)) {
+		pr_warn("%s: boost_min is set on hotplug.\n", __func__);
+		s->boost_min = 0;
+	}
+	if (unlikely(s->input_boost_min > 0)) {
+		pr_warn("%s: input_boost_min is set on hotplug.\n", __func__);
+		s->input_boost_min = 0;
+	}
+	if (unlikely(s->plug_boost_min > 0)) {
+		pr_warn("%s: plug_boost_min is set on hotplug.\n", __func__);
+		s->plug_boost_min = 0;
+	}
+}
+
 static int cpuboost_cpu_callback(struct notifier_block *cpu_nb, unsigned long action, void *hcpu)
 {
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
+		cpu_up_prepare((unsigned long) hcpu);
+		break;
+
 	case CPU_DEAD:
 	case CPU_UP_CANCELED:
 		break;
