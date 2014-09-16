@@ -1,7 +1,7 @@
 /*
  * Platform Dependent file for Samsung Exynos
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -47,7 +47,7 @@
 #include <linux/wlan_plat.h>
 
 #include <mach/gpio.h>
-#include <mach/sec-sysfs.h>
+#include <linux/sec_sysfs.h>
 
 #include <plat/gpio-cfg.h>
 

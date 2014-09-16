@@ -573,17 +573,7 @@ static int dhd_wifi_platform_load_sdio(void)
 			DHD_ERROR(("failed to power up %s, %d retry left\n", adapter->name, retry));
 			dhd_bus_unreg_sdio_notify();
 			wifi_platform_set_power(adapter, FALSE, WIFI_TURNOFF_DELAY);
-
-#if !defined(CONFIG_MACH_KLTE_ATT) && !defined(CONFIG_MACH_KLTE_VZW) &&\
-    !defined(CONFIG_MACH_KLTE_SPR) && !defined(CONFIG_MACH_KLTE_TMO) &&\
-    !defined(CONFIG_MACH_KLTE_USC) && !defined(CONFIG_MACH_K3GDUOS_CTC) &&\
-    !defined(CONFIG_MACH_VIENNAATT) && !defined(CONFIG_MACH_KLTE_KOR) &&\
-    !defined(CONFIG_MACH_KLTE_JPN) && !defined(CONFIG_MACH_KLTE_EUR) &&\
-    !defined(CONFIG_MACH_KLTE_CAN) && !defined(CONFIG_MACH_KACTIVELTE_EUR) &&\
-    !defined(CONFIG_MACH_KACTIVELTE_ATT)
-
 			wifi_platform_bus_enumerate(adapter, FALSE);
-#endif
 		} while (retry--);
 
 		if (!chip_up) {

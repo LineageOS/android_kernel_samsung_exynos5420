@@ -34,6 +34,14 @@
 #define HW_OOB
 #endif /* CONFIG_MACH_SAMSUNG_ESPRESSO && CONFIG_MACH_SAMSUNG_ESPRESSO_10 */
 
+#if defined(CONFIG_MACH_HL3G) || defined(CONFIG_MACH_HLLTE)
+#define CUSTOM_SET_CPUCORE
+#define PRIMARY_CPUCORE 0
+#define MAX_RETRY_SET_CPUCORE 5
+#define DPC_CPUCORE 4
+#define RXF_CPUCORE 5
+#endif /* CONFIG_MACH_HL3G || CONFIG_MACH_HLLTE */
+
 /* Q1 also uses this feature */
 #if defined(CONFIG_MACH_U1) || defined(CONFIG_MACH_TRATS)
 #ifdef CONFIG_MACH_Q1_BD

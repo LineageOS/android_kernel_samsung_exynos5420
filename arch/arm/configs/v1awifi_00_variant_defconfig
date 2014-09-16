@@ -1,0 +1,3 @@
+# edit here
+# def/undef for local target
+v1awifi_usa_open="CONFIG_TARGET_LOCALE_USA=y"

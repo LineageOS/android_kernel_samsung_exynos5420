@@ -3310,7 +3310,8 @@ static int s3c_fb_ioctl(struct fb_info *info, unsigned int cmd,
 #endif
 #ifdef CONFIG_S5P_DP_PSR
 	if (cmd != S3CFB_WIN_CONFIG &&
-			cmd != S3CFB_SET_VSYNC_INT) {
+			cmd != S3CFB_SET_VSYNC_INT &&
+            cmd != S3CFB_WIN_PSR_EXIT) {
 		flush_kthread_worker(&sfb->psr_worker);
 		mutex_lock(&sfb->output_lock);
 		s3c_fb_clk_ctrl(sfb, true);

@@ -132,7 +132,11 @@ static struct max77803_led_platform_data max77803_led_pdata = {
 #ifdef CONFIG_VIBETONZ
 static struct max77803_haptic_platform_data max77803_haptic_pdata = {
 	.max_timeout = 10000,
+#if defined(CONFIG_N2A)
+	.duty = 32775,
+#else
 	.duty = 34500,
+#endif
 	.period = 38240,
 	.reg2 = MOTOR_LRA | EXT_PWM | DIVIDER_128,
 	.init_hw = NULL,

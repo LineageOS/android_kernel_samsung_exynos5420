@@ -602,6 +602,11 @@ static void wacom_compulsory_flash_mode(bool en)
 	gpio_direction_output(GPIO_PEN_FWE1_18V, en);
 }
 
+static int wacom_get_irq_state(void)
+{
+	return gpio_get_value(GPIO_PEN_IRQ_18V);
+}
+
 static struct wacom_g5_platform_data wacom_platform_data = {
 	.x_invert = WACOM_X_INVERT,
 	.y_invert = WACOM_Y_INVERT,
@@ -625,6 +630,7 @@ static struct wacom_g5_platform_data wacom_platform_data = {
 	.register_cb = wacom_register_callbacks,
 	.compulsory_flash_mode = wacom_compulsory_flash_mode,
 	.gpio_pen_insert = GPIO_WACOM_SENSE,
+	.get_irq_state = wacom_get_irq_state,
 };
 
 /* I2C */

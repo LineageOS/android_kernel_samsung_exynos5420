@@ -147,8 +147,8 @@ static int zagg_kbd_input_mapping(struct hid_device *hdev,
 		switch (usage->hid & HID_USAGE) { // 0X0000FFFF --> PS/2 Set 1 Make
 		set_bit(EV_REP, hi->input->evbit);
 		/* Only for UK keyboard */
-		case 0x32: zagg_kbd_mouse_map_key_clear(KEY_KBDILLUMTOGGLE); break; // POUND
-		case 0x64: zagg_kbd_mouse_map_key_clear(KEY_BACKSLASH); break; // BACKSLASH
+		case 0x32: zagg_kbd_mouse_map_key_clear(KEY_BACKSLASH); break; // BACKSLASH
+		case 0x64: zagg_kbd_mouse_map_key_clear(KEY_102ND); break; // PLUS
 		default:
 			return 0;
 		}
@@ -163,16 +163,17 @@ static int zagg_kbd_input_mapping(struct hid_device *hdev,
 		case 0x19e: zagg_kbd_mouse_map_key_clear(KEY_SCREENLOCK); break; // POWER
 		case 0x221: zagg_kbd_mouse_map_key_clear(KEY_SEARCH); break; // SEARCH
 		case 0x223: zagg_kbd_mouse_map_key_clear(KEY_HOMEPAGE); break; // HOME
-		
+
 		case 0x301: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY1); break; // RECENTAPPS
 		case 0x302: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY2); break; // APPLICATION
 		case 0x307: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY3); break; // SIP_ON_OFF
 		case 0x305: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY4); break; // VOICESEARCH
 		case 0x306: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY5); break; // QPANEL_ON_OFF
-		case 0x30c: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY6); break; // MULTI_WINDOW
-		
+		case 0x30c: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY7); break; // SFINDER
+		case 0x30d: zagg_kbd_mouse_map_key_clear(BTN_TRIGGER_HAPPY9); break; // MULTI_WINDOW
+
 		case 0x308: zagg_kbd_mouse_map_key_clear(KEY_LANGUAGE); break; // LANGUAGE_SWITCH
-		
+
 		case 0x30a: zagg_kbd_mouse_map_key_clear(KEY_BRIGHTNESSDOWN); break; // BRIGHTNESS_DOWN
 		case 0x30b: zagg_kbd_mouse_map_key_clear(KEY_BRIGHTNESSUP); break; // BRIGHTNESS_UP
 		default:

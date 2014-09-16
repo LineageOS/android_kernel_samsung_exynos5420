@@ -1126,6 +1126,11 @@ config TARGET_LOCALE_USA
 	help
 	  Enable universal5420 LOCALE USA.
 
+config TARGET_LOCALE_DEMO
+	bool "Locale DEMO support"
+	help
+	  Enable universal5420 LOCALE DEMO.
+
 endchoice
 
 choice

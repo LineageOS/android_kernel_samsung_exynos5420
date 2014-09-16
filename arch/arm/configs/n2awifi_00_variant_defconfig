@@ -1,3 +1,4 @@
 # edit here
 # def/undef for local target
 n2awifi_usa_open="CONFIG_TARGET_LOCALE_USA=y"
+n2awifi_eur_demo="CONFIG_TARGET_LOCALE_DEMO=y"

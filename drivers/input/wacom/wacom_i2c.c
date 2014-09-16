@@ -180,9 +180,13 @@ static irqreturn_t wacom_interrupt_pdct(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	wac_i2c->pen_pdct = gpio_get_value(wac_i2c->wac_pdata->gpio_pendct);
-
+#if defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 	printk(KERN_DEBUG "epen:pdct %d(%d)\n",
 		wac_i2c->pen_pdct, wac_i2c->pen_prox);
+#else
+	printk(KERN_DEBUG "epen:pdct %d(%d) %d\n",
+		wac_i2c->pen_pdct, wac_i2c->pen_prox, wac_i2c->wac_pdata->get_irq_state());
+#endif
 #if 0
 	if (wac_i2c->pen_pdct == PDCT_NOSIGNAL) {
 		/* If rdy is 1, pen is still working*/
@@ -372,14 +376,23 @@ static void wacom_i2c_late_resume(struct early_suspend *h)
 
 static void wacom_i2c_resume_work(struct work_struct *work)
 {
-struct wacom_i2c *wac_i2c =
-	    container_of(work, struct wacom_i2c, resume_work.work);
+	struct wacom_i2c *wac_i2c =
+			container_of(work, struct wacom_i2c, resume_work.work);
+	u8 irq_state = 0;
+	int ret = 0;
 
-#if defined(WACOM_PDCT_WORK_AROUND)
-	irq_set_irq_type(wac_i2c->irq_pdct, IRQ_TYPE_EDGE_BOTH);
-#endif
-
+	irq_state = wac_i2c->wac_pdata->get_irq_state();
 	wacom_enable_irq(wac_i2c, true);
+
+	if (unlikely(irq_state)) {
+		printk(KERN_DEBUG"epen:irq was enabled\n");
+		ret = wacom_i2c_recv(wac_i2c, wac_i2c->wac_feature->data, COM_COORD_NUM, false);
+		if (ret < 0) {
+			printk(KERN_ERR "epen:%s failed to read i2c.L%d\n", __func__,
+				__LINE__);
+		}
+	}
+
 	printk(KERN_DEBUG "epen:%s\n", __func__);
 }
 
@@ -1313,9 +1326,6 @@ static int wacom_i2c_probe(struct i2c_client *client,
 
 	wacom_init_abs_params(wac_i2c);
 	input_set_drvdata(input, wac_i2c);
-
-	/*Change below if irq is needed */
-	wac_i2c->irq_flag = 1;
 
 	/*Set client data */
 	i2c_set_clientdata(client, wac_i2c);
