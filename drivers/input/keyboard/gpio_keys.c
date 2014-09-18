@@ -892,7 +892,7 @@ static void flip_cover_work(struct work_struct *work)
 	if(first == second && ddata->flip_cover != first) {
 		ddata->flip_cover = first;
 		input_report_switch(ddata->input,
-			SW_LID, ddata->flip_cover);
+			SW_LID, !ddata->flip_cover);
 		input_sync(ddata->input);
 	}
 }
@@ -912,7 +912,7 @@ static void flip_cover_work(struct work_struct *work)
 	if(ddata->flip_cover != first) {
 		ddata->flip_cover = first;
 		input_report_switch(ddata->input,
-			SW_LID, ddata->flip_cover);
+			SW_LID, !ddata->flip_cover);
 		input_sync(ddata->input);
 	}
 }
