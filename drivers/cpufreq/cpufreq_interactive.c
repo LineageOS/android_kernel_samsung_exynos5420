@@ -413,6 +413,7 @@ static u64 update_load(int cpu)
 	unsigned int delta_idle;
 	unsigned int delta_time;
 	u64 active_time;
+
 	now_idle = get_cpu_idle_time(cpu, &now);
 	delta_idle = (unsigned int)(now_idle - pcpu->time_in_idle);
 	delta_time = (unsigned int)(now - pcpu->time_in_idle_timestamp);
@@ -469,6 +470,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 
 	if (WARN_ON_ONCE(!delta_time))
 		goto rearm;
+
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->target_freq;
@@ -851,6 +853,7 @@ static ssize_t show_target_loads(
 	unsigned long flags;
 
 	spin_lock_irqsave(&target_loads_lock, flags);
+
 	for (i = 0; i < ntarget_loads; i++)
 		ret += sprintf(buf + ret, "%u%s", target_loads[i],
 			       i & 0x1 ? ":" : " ");
@@ -867,6 +870,7 @@ static ssize_t store_target_loads(
 	int ntokens;
 	unsigned int *new_target_loads = NULL;
 	unsigned long flags;
+
 	new_target_loads = get_tokenized_data(buf, &ntokens);
 	if (IS_ERR(new_target_loads))
 		return PTR_RET(new_target_loads);
@@ -909,9 +913,11 @@ static ssize_t store_above_hispeed_delay(
 	int ntokens;
 	unsigned int *new_above_hispeed_delay = NULL;
 	unsigned long flags;
+
 	new_above_hispeed_delay = get_tokenized_data(buf, &ntokens);
 	if (IS_ERR(new_above_hispeed_delay))
 		return PTR_RET(new_above_hispeed_delay);
+
 	spin_lock_irqsave(&above_hispeed_delay_lock, flags);
 	if (above_hispeed_delay != default_above_hispeed_delay)
 		kfree(above_hispeed_delay);
@@ -938,6 +944,7 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 {
 	int ret;
 	long unsigned int val;
+
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
@@ -983,6 +990,7 @@ static ssize_t store_go_hispeed_load(struct kobject *kobj,
 {
 	int ret;
 	unsigned long val;
+
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
@@ -1004,6 +1012,7 @@ static ssize_t store_min_sample_time(struct kobject *kobj,
 {
 	int ret;
 	unsigned long val;
+
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
@@ -1025,6 +1034,7 @@ static ssize_t store_timer_rate(struct kobject *kobj,
 {
 	int ret;
 	unsigned long val;
+
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
