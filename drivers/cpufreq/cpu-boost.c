@@ -27,8 +27,10 @@
 #include <linux/time.h>
 
 struct cpu_sync {
+#ifdef SUPPORT_CPU_BOOST_SYNC
 	struct task_struct *thread;
 	wait_queue_head_t sync_wq;
+#endif
 	struct delayed_work boost_rem;
 	struct delayed_work input_boost_rem;
 	int cpu;
@@ -47,8 +49,10 @@ static struct work_struct input_boost_work;
 static unsigned int boost_ms;
 module_param(boost_ms, uint, 0644);
 
+#ifdef SUPPORT_CPU_BOOST_SYNC
 static unsigned int sync_threshold;
 module_param(sync_threshold, uint, 0644);
+#endif
 
 static unsigned int input_boost_freq;
 module_param(input_boost_freq, uint, 0644);
@@ -96,9 +100,11 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, voi
 			 cpu, policy->min);
 		break;
 
+#ifdef SUPPORT_CPU_BOOST_SYNC
 	case CPUFREQ_START:
 		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 		break;
+#endif
 	}
 
 	return NOTIFY_OK;
@@ -130,6 +136,7 @@ static void do_input_boost_rem(struct work_struct *work)
 	cpufreq_update_policy(s->cpu);
 }
 
+#ifdef SUPPORT_CPU_BOOST_SYNC
 static int boost_mig_sync_thread(void *data)
 {
 	int dest_cpu = (int) data;
@@ -213,6 +220,7 @@ static int boost_migration_notify(struct notifier_block *nb,
 static struct notifier_block boost_migration_nb = {
 	.notifier_call = boost_migration_notify,
 };
+#endif
 
 static void do_input_boost(struct work_struct *work)
 {
@@ -344,17 +352,21 @@ static int cpu_boost_init(void)
 	for_each_possible_cpu(cpu) {
 		s = &per_cpu(sync_info, cpu);
 		s->cpu = cpu;
-		init_waitqueue_head(&s->sync_wq);
 		spin_lock_init(&s->lock);
 		INIT_DELAYED_WORK(&s->boost_rem, do_boost_rem);
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);
+#ifdef SUPPORT_CPU_BOOST_SYNC
+		init_waitqueue_head(&s->sync_wq);
 		s->thread = kthread_run(boost_mig_sync_thread, (void *)cpu,
 					"boost_sync/%d", cpu);
 		set_cpus_allowed(s->thread, *cpumask_of(cpu));
+#endif
 	}
 	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
+#ifdef SUPPORT_CPU_BOOST_SYNC
 	atomic_notifier_chain_register(&migration_notifier_head,
 					&boost_migration_nb);
+#endif
 	ret = input_register_handler(&cpuboost_input_handler);
 
 	return 0;
