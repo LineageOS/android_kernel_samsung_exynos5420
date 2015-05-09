@@ -2535,7 +2535,7 @@ static struct file *path_openat(int dfd, const char *pathname,
 
 	if (unlikely(filp->f_flags & __O_TMPFILE)) {
 		error = do_tmpfile(dfd, pathname, nd, flags, op, filp);
-		goto out;
+		goto out2;
 	}
 
 	error = path_init(dfd, pathname, flags | LOOKUP_PARENT, nd, &base);
@@ -2571,6 +2571,7 @@ out:
 		path_put(&nd->root);
 	if (base)
 		fput(base);
+out2:
 	release_open_intent(nd);
 	return filp;
 
