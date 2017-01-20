@@ -747,6 +747,11 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	 * this user can change the lower inode: that should happen when
 	 * calling notify_change on the lower inode.
 	 */
+	/* prepare our own lower struct iattr (with the lower file) */
+	memcpy(&lower_ia, ia, sizeof(lower_ia));
+	/* Allow touch updating timestamps. A previous permission check ensures
+	* we have write access. Changes to mode, owner, and group are ignored*/
+	ia->ia_valid |= ATTR_FORCE;
 	err = inode_change_ok(inode, ia);
 
 	/* no vfs_XXX operations required, cred overriding will be skipped. wj*/
@@ -769,8 +774,6 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	lower_dentry = lower_path.dentry;
 	lower_inode = sdcardfs_lower_inode(inode);
 
-	/* prepare our own lower struct iattr (with the lower file) */
-	memcpy(&lower_ia, ia, sizeof(lower_ia));
 	if (ia->ia_valid & ATTR_FILE)
 		lower_ia.ia_file = sdcardfs_lower_file(ia->ia_file);
 
