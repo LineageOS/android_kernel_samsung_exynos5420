@@ -104,6 +104,8 @@ static int touchkey_autocalibration(struct touchkey_i2c *tkey_i2c);
 static void cypress_touchkey_interrupt_set_dual(struct i2c_client *client);
 
 static int touchkey_i2c_check(struct touchkey_i2c *tkey_i2c);
+static int i2c_touchkey_write(struct touchkey_i2c *tkey_i2c,
+		u8 *val, unsigned int len);
 
 #if defined(TK_USE_4KEY)
 static u8 home_sensitivity;
@@ -124,13 +126,29 @@ static int touchkey_led_status;
 static int touchled_cmd_reversed;
 static int led_on_keypress = 0;
 
+static struct touchkey_i2c *bl_tkey_i2c = NULL;
+
 #ifdef LED_LDO_WITH_REGULATOR
 
 #define BL_STANDARD	3000
 #define BL_MIN		2500
 #define BL_MAX		3300
 
+#define FADEIN_STEP_MS  50
+#define FADEOUT_STEP_MS 50
+
+static int led_fadein = 0, led_fadeout = 0, led_abort_fade = 0;
+
+static DEFINE_MUTEX(led_fadeout_mutex);
+static void led_fadeout_process(struct work_struct *led_fadeout_work);
+static DECLARE_WORK(led_fadeout_work, led_fadeout_process);
+
+static DEFINE_MUTEX(led_fadein_mutex);
+static void led_fadein_process(struct work_struct *led_fadein_work);
+static DECLARE_WORK(led_fadein_work, led_fadein_process);
+
 static unsigned int touchkey_voltage_brightness = BL_STANDARD;
+static unsigned int touchkey_voltage = BL_STANDARD;
 
 static void change_touch_key_led_voltage(int vol_mv)
 {
@@ -146,12 +164,16 @@ static void change_touch_key_led_voltage(int vol_mv)
 	regulator_put(tled_regulator);
 }
 
-void update_touchkey_brightness(unsigned int level)
+void update_touchkey_brightness(unsigned int level, bool set_voltage)
 {
 	if (level > 0 && level < 256) {
 		printk(KERN_DEBUG "[TouchKey-LED] %s: %d\n", __func__, level);
-		touchkey_voltage_brightness = BL_MIN + ((((level * 100 / 255) * (BL_MAX - BL_MIN)) / 100) / 50) * 50;
-		change_touch_key_led_voltage(touchkey_voltage_brightness);
+		touchkey_voltage_brightness = BL_MIN +
+			((((level * 100 / 255) * (BL_MAX - BL_MIN)) / 100) / 50) * 50;
+		if (set_voltage) {
+			touchkey_voltage = touchkey_voltage_brightness;
+			change_touch_key_led_voltage(touchkey_voltage_brightness);
+		}
 	} else {
 		printk(KERN_DEBUG "[TouchKey-LED] %s: Ignoring brightness : %d\n", __func__, level);
 	}
@@ -171,6 +193,134 @@ static ssize_t brightness_control(struct device *dev,
 	}
 
 	return size;
+}
+
+static ssize_t get_touchkey_fadein(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	return sprintf(buf,"%d\n", led_fadein);
+}
+static ssize_t set_touchkey_fadein(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t size)
+{
+	if (!strncmp(buf, "on", 2)) led_fadein = 1;
+	else if (!strncmp(buf, "off", 3)) led_fadein = 0;
+	else sscanf(buf,"%d\n", &led_fadein);
+	return size;
+}
+
+static ssize_t get_touchkey_fadeout(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	return sprintf(buf,"%d\n", led_fadeout);
+}
+static ssize_t set_touchkey_fadeout(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
+{
+	if (!strncmp(buf, "on", 2)) led_fadeout = 1;
+	else if (!strncmp(buf, "off", 3)) led_fadeout = 0;
+	else sscanf(buf,"%d\n", &led_fadeout);
+	return size;
+}
+
+static void led_fadeout_process(struct work_struct *work)
+{
+	if (bl_tkey_i2c == NULL) {
+		printk(KERN_ERR "%s: no bl_tkey_i2c\n", __func__);
+		return;
+	}
+
+	if (!mutex_trylock(&led_fadeout_mutex)) {
+		printk(KERN_DEBUG "[TouchKey] %s: Ignoring, already doing fade out\n", __func__);
+		return;
+	}
+	printk(KERN_DEBUG "[TouchKey] %s: Fade started\n", __func__);
+
+	if (!led_fadein) {
+		touchkey_voltage = touchkey_voltage_brightness;
+		change_touch_key_led_voltage(touchkey_voltage);
+	}
+
+	while (touchkey_voltage >= BL_MIN) {
+		change_touch_key_led_voltage(touchkey_voltage);
+		if (led_abort_fade) {
+			printk(KERN_DEBUG "[TouchKey] %s: Fade aborted\n",
+				 __func__);
+
+			led_abort_fade = 0;
+			break;
+		}
+		msleep(FADEOUT_STEP_MS);
+		touchkey_voltage -= 50;
+	}
+
+	if (!led_abort_fade) {
+		printk(KERN_DEBUG "[TouchKey] %s: Turn off LED\n", __func__);
+		touchkey_led_status = TK_CMD_LED_OFF;
+		i2c_touchkey_write(bl_tkey_i2c->client, (u8 *) &touchkey_led_status, 1);
+	}
+	printk(KERN_DEBUG "[TouchKey] %s: Fade finished\n", __func__);
+	mutex_unlock(&led_fadeout_mutex);
+}
+
+static void led_fadein_process(struct work_struct *work)
+{
+	if (bl_tkey_i2c == NULL) {
+		printk(KERN_ERR "%s: no bl_tkey_i2c\n", __func__);
+		return;
+	}
+
+	if (!mutex_trylock(&led_fadein_mutex)) {
+		printk(KERN_DEBUG "[TouchKey] %s: Ignoring, already doing fade in\n", __func__);
+		return;
+	}
+	printk(KERN_DEBUG "[TouchKey] %s: Fade started\n", __func__);
+
+	if (!touchled_cmd_reversed && touchkey_led_status == TK_CMD_LED_ON) {
+		printk(KERN_DEBUG
+			"[TouchKey] Update LED voltage only, because LED is already on\n");
+		change_touch_key_led_voltage(touchkey_voltage_brightness);
+		mutex_unlock(&led_fadein_mutex);
+		return;
+	}
+
+	if (touchled_cmd_reversed) {
+		touchled_cmd_reversed = 0;
+		touchkey_voltage = BL_MIN;
+		touchkey_led_status = TK_CMD_LED_OFF;
+	}
+
+	if (!led_fadeout) {
+		touchkey_voltage = BL_MIN;
+	}
+
+	if (touchkey_led_status != TK_CMD_LED_ON) {
+		printk(KERN_DEBUG "[TouchKey] %s: Turn on LED\n", __func__);
+		change_touch_key_led_voltage(touchkey_voltage);
+		touchkey_led_status = TK_CMD_LED_ON;
+		i2c_touchkey_write(bl_tkey_i2c->client, (u8 *) &touchkey_led_status, 1);
+	} else {
+		printk(KERN_DEBUG "[TouchKey] %s: LED is still on\n", __func__);
+	}
+	while (touchkey_voltage <= touchkey_voltage_brightness) {
+		change_touch_key_led_voltage(touchkey_voltage);
+		if (led_abort_fade) {
+			printk(KERN_DEBUG "[TouchKey] %s: Fade aborted\n",
+				 __func__);
+			led_abort_fade = 0;
+			break;
+		}
+		msleep(FADEIN_STEP_MS);
+		touchkey_voltage += 50;
+	}
+	printk(KERN_DEBUG "[TouchKey] %s: Fade finished\n", __func__);
+
+	mutex_unlock(&led_fadein_mutex);
 }
 #endif
 
@@ -1393,6 +1543,23 @@ if (TOUCHKEY_BOOSTER_ENABLED == 1)
 #endif
 
 	if (led_on_keypress) {
+#ifdef LED_LDO_WITH_REGULATOR
+		if (pressed) {
+			/* Break-off running fade-out process */
+			led_abort_fade = 1;
+			cancel_work_sync(&led_fadeout_work);
+			led_abort_fade = 0;
+			if (led_fadein) {
+				printk(KERN_DEBUG "[TouchKey] %s: Trigger fadein\n",
+					 __func__);
+				schedule_work(&led_fadein_work);
+				return IRQ_HANDLED;
+			}
+			/* Restore voltage when fade-in is not enabled */
+			touchkey_voltage = touchkey_voltage_brightness;
+			change_touch_key_led_voltage(touchkey_voltage_brightness);
+		}
+#endif
 		printk(KERN_DEBUG "[TouchKey] pressed: Turn LED on\n");
 		touchkey_led_status = TK_CMD_LED_ON;
 		i2c_touchkey_write(tkey_i2c, (u8 *) &touchkey_led_status, 1);
@@ -1432,6 +1599,13 @@ static int touchkey_stop(struct touchkey_i2c *tkey_i2c)
 	/*cancel or waiting before pwr off*/
 	tkey_i2c->tsk_glove_mode_status = false;
 	cancel_delayed_work(&tkey_i2c->glove_change_work);
+#endif
+
+#ifdef LED_LDO_WITH_REGULATOR
+	if (led_fadeout) {
+		led_fadeout_process(NULL);
+		cancel_work_sync(&led_fadeout_work);
+	}
 #endif
 
 	/* disable ldo18 */
@@ -1500,6 +1674,15 @@ static int touchkey_start(struct touchkey_i2c *tkey_i2c)
 #endif
 
 	if (touchled_cmd_reversed) {
+#ifdef LED_LDO_WITH_REGULATOR
+		if (led_fadein) {
+			schedule_work(&led_fadein_work);
+		} else {
+			i2c_touchkey_write(tkey_i2c->client,
+				(u8 *) &touchkey_led_status, 1);
+			printk(KERN_DEBUG "[Touchkey] LED returned on\n");
+		}
+#else
 		touchled_cmd_reversed = 0;
 		if (tkey_i2c->pdata->led_control_by_ldo == true)
 			tkey_i2c->pdata->led_power_on(1);
@@ -1509,6 +1692,7 @@ static int touchkey_start(struct touchkey_i2c *tkey_i2c)
 			dev_err(&tkey_i2c->client->dev, "%s: Turning LED is reserved\n", __func__);
 			msleep(30);
 		}
+#endif
 	}
 
 #ifdef TEST_JIG_MODE
@@ -1525,7 +1709,7 @@ static int touchkey_start(struct touchkey_i2c *tkey_i2c)
 #endif
 
 #ifdef LED_LDO_WITH_REGULATOR
-	if (!led_on_keypress) {
+	if (!led_on_keypress && !led_fadein) {
 		change_touch_key_led_voltage(touchkey_voltage_brightness);
 	}
 #endif
@@ -1772,8 +1956,27 @@ static ssize_t touchkey_led_control(struct device *dev,
 	}
 
 #ifdef LED_LDO_WITH_REGULATOR
-	if (data > 1 && touchkey_enabled_flag) {
-		update_touchkey_brightness(data);
+	if (led_fadein || led_fadeout) {
+		update_touchkey_brightness(data, false);
+	}
+	if (!led_on_keypress && led_fadein && data > 1 && touchkey_enable) {
+		/* Break-off running fade-out process */
+		led_abort_fade = 1;
+		cancel_work_sync(&led_fadeout_work);
+		led_abort_fade = 0;
+		schedule_work(&led_fadein_work);
+		return size;
+	}
+	if (led_fadeout && data == 0 && touchkey_enable) {
+		led_abort_fade = 1;
+		cancel_work_sync(&led_fadein_work);
+		led_abort_fade = 0;
+		schedule_work(&led_fadeout_work);
+		return size;
+	}
+
+	if (!led_on_keypress && data > 1 && touchkey_enable) {
+		update_touchkey_brightness(data, true);
 	}
 	data = data ? 1 : 0;
 #endif
@@ -1812,6 +2015,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 				dev_err(&tkey_i2c->client->dev, "%s: Error turn on led %d\n",
 					__func__, ret);
 				touchled_cmd_reversed = 1;
+				touchkey_led_status = data;
 				goto out;
 			}
 		}
@@ -1819,7 +2023,6 @@ static ssize_t touchkey_led_control(struct device *dev,
 	}
 out:
 #endif
-	touchkey_led_status = data;
 
 	return size;
 }
@@ -2079,8 +2282,12 @@ static DEVICE_ATTR(touchkey_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP,
 static DEVICE_ATTR(touchkey_enabled, S_IRUGO | S_IWUSR | S_IWGRP,
 		   show_touchkey_enabled, touchkey_enabled_store);
 #ifdef LED_LDO_WITH_REGULATOR
-static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP,
-		   NULL, brightness_control);
+static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
+		   brightness_control);
+static DEVICE_ATTR(touchkey_fadein, S_IRUGO | S_IWUSR | S_IWGRP, get_touchkey_fadein,
+		   set_touchkey_fadein);
+static DEVICE_ATTR(touchkey_fadeout, S_IRUGO | S_IWUSR | S_IWGRP, get_touchkey_fadeout,
+		   set_touchkey_fadeout);
 #endif
 static DEVICE_ATTR(touchkey_led_on_keypress, S_IRUGO | S_IWUGO, led_on_keypress_read, led_on_keypress_write);
 
@@ -2131,6 +2338,8 @@ static struct attribute *touchkey_attributes[] = {
 	&dev_attr_touchkey_firm_version_panel.attr,
 #ifdef LED_LDO_WITH_REGULATOR
 	&dev_attr_touchkey_brightness.attr,
+	&dev_attr_touchkey_fadein.attr,
+	&dev_attr_touchkey_fadeout.attr,
 #endif
 	&dev_attr_touchkey_led_on_keypress.attr,
 #if defined(TK_HAS_AUTOCAL)
@@ -2195,6 +2404,7 @@ static int i2c_touchkey_probe(struct i2c_client *client,
 #ifdef CONFIG_GLOVE_TOUCH
 	tkey_i2c_global = tkey_i2c;
 #endif
+	bl_tkey_i2c = tkey_i2c;
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
@@ -2445,6 +2655,7 @@ static int __init touchkey_init(void)
 
 static void __exit touchkey_exit(void)
 {
+	bl_tkey_i2c = NULL;
 	i2c_del_driver(&touchkey_i2c_driver);
 	touchkey_probe = false;
 }
