@@ -122,6 +122,7 @@ MODULE_DEVICE_TABLE(i2c, sec_touchkey_id);
 extern int get_touchkey_firmware(char *version);
 static int touchkey_led_status;
 static int touchled_cmd_reversed;
+static int led_on_keypress = 0;
 
 #ifdef LED_LDO_WITH_REGULATOR
 
@@ -172,6 +173,19 @@ static ssize_t brightness_control(struct device *dev,
 	return size;
 }
 #endif
+
+static ssize_t led_on_keypress_read( struct device *dev, struct device_attribute *attr, char *buf )
+{
+	return sprintf(buf,"%d\n", led_on_keypress);
+}
+
+static ssize_t led_on_keypress_write( struct device *dev, struct device_attribute *attr, const char *buf, size_t size )
+{
+	if (!strncmp(buf, "on", 2)) led_on_keypress = 1;
+	else if (!strncmp(buf, "off", 3)) led_on_keypress = 0;
+	else sscanf(buf,"%d\n", &led_on_keypress);
+	return size;
+}
 
 static int i2c_touchkey_read(struct touchkey_i2c *tkey_i2c,
 		u8 *val, unsigned int len)
@@ -1377,6 +1391,12 @@ if (TOUCHKEY_BOOSTER_ENABLED == 1)
 	INPUT_BOOSTER_SEND_EVENT(tkey_code[1],
 		!!pressed);
 #endif
+
+	if (led_on_keypress) {
+		printk(KERN_DEBUG "[TouchKey] pressed: Turn LED on\n");
+		touchkey_led_status = TK_CMD_LED_ON;
+		i2c_touchkey_write(tkey_i2c, (u8 *) &touchkey_led_status, 1);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -1505,7 +1525,9 @@ static int touchkey_start(struct touchkey_i2c *tkey_i2c)
 #endif
 
 #ifdef LED_LDO_WITH_REGULATOR
-	change_touch_key_led_voltage(touchkey_voltage_brightness);
+	if (!led_on_keypress) {
+		change_touch_key_led_voltage(touchkey_voltage_brightness);
+	}
 #endif
 
 	enable_irq(tkey_i2c->irq);
@@ -1784,12 +1806,14 @@ static ssize_t touchkey_led_control(struct device *dev,
 			goto out;
 		}
 
-		ret = i2c_touchkey_write(tkey_i2c, (u8 *) &data, 1);
-		if (ret < 0) {
-			dev_err(&tkey_i2c->client->dev, "%s: Error turn on led %d\n",
-				__func__, ret);
-			touchled_cmd_reversed = 1;
-			goto out;
+		if (!led_on_keypress || data == TK_CMD_LED_OFF) {
+			ret = i2c_touchkey_write(tkey_i2c, (u8 *) &data, 1);
+			if (ret < 0) {
+				dev_err(&tkey_i2c->client->dev, "%s: Error turn on led %d\n",
+					__func__, ret);
+				touchled_cmd_reversed = 1;
+				goto out;
+			}
 		}
 		msleep(30);
 	}
@@ -2058,6 +2082,7 @@ static DEVICE_ATTR(touchkey_enabled, S_IRUGO | S_IWUSR | S_IWGRP,
 static DEVICE_ATTR(touchkey_brightness, S_IRUGO | S_IWUSR | S_IWGRP,
 		   NULL, brightness_control);
 #endif
+static DEVICE_ATTR(touchkey_led_on_keypress, S_IRUGO | S_IWUGO, led_on_keypress_read, led_on_keypress_write);
 
 #if defined(TK_HAS_AUTOCAL)
 static DEVICE_ATTR(touchkey_raw_data0, S_IRUGO, touchkey_raw_data0_show, NULL);
@@ -2107,6 +2132,7 @@ static struct attribute *touchkey_attributes[] = {
 #ifdef LED_LDO_WITH_REGULATOR
 	&dev_attr_touchkey_brightness.attr,
 #endif
+	&dev_attr_touchkey_led_on_keypress.attr,
 #if defined(TK_HAS_AUTOCAL)
 	&dev_attr_touchkey_raw_data0.attr,
 	&dev_attr_touchkey_raw_data1.attr,
