@@ -29,139 +29,9 @@
 #include "fimg2d_clk.h"
 #include "fimg2d4x.h"
 #include "fimg2d_ctx.h"
-#include "fimg2d_cache.h"
 #include "fimg2d_helper.h"
 
 #define BLIT_TIMEOUT	msecs_to_jiffies(8000)
-
-#define MAX_PREFBUFS	6
-static int nbufs;
-static struct sysmmu_prefbuf prefbuf[MAX_PREFBUFS];
-
-#define G2D_MAX_VMA_MAPPING	12
-
-static int mapping_can_locked(unsigned long mapping, unsigned long mappings[], int cnt)
-{
-	int i;
-	if (!mapping)
-		return 0;
-
-	for (i = 0; i < cnt; i++) {
-		if ((mappings[i] & PAGE_MAPPING_FLAGS) == PAGE_MAPPING_ANON) {
-			if ((mapping & PAGE_MAPPING_FLAGS) == PAGE_MAPPING_ANON) {
-				struct anon_vma *anon = (struct anon_vma *)
-					(mapping & ~PAGE_MAPPING_FLAGS);
-				struct anon_vma *locked = (struct anon_vma *)
-					(mappings[i] & ~PAGE_MAPPING_FLAGS);
-				if (anon->root == locked->root)
-					return 0;
-			}
-		} else if (mappings[i] != 0) {
-			if (mappings[i] == mapping)
-				return 0;
-		}
-	}
-	return 1;
-}
-
-static int vma_lock_mapping_one(struct mm_struct *mm, unsigned long addr,
-				size_t len, unsigned long mappings[], int cnt)
-{
-	unsigned long end = addr + len;
-	struct vm_area_struct *vma;
-	struct page *page;
-
-	for (vma = find_vma(mm, addr);
-		vma && (vma->vm_start <= addr) && (addr < end);
-		addr += vma->vm_end - vma->vm_start, vma = vma->vm_next) {
-		int i;
-		struct anon_vma *anon;
-
-		page = follow_page(vma, addr, 0);
-		if (IS_ERR_OR_NULL(page) || !page->mapping)
-			continue;
-
-		anon = page_get_anon_vma(page);
-		if (!anon) {
-			struct address_space *mapping;
-			get_page(page);
-			mapping = page_mapping(page);
-			if (mapping_can_locked(
-				(unsigned long)mapping, mappings, cnt)) {
-				mutex_lock(&mapping->i_mmap_mutex);
-				mappings[cnt++] = (unsigned long)mapping;
-			}
-			put_page(page);
-		} else {
-			if (mapping_can_locked(
-					(unsigned long)anon | PAGE_MAPPING_ANON,
-					mappings, cnt)) {
-				page_lock_anon_vma(page);
-				mappings[cnt++] = (unsigned long)page->mapping;
-			}
-			put_anon_vma(anon);
-		}
-
-		if (cnt == G2D_MAX_VMA_MAPPING)
-			break;
-	}
-
-	return cnt;
-}
-
-static void *vma_lock_mapping(struct mm_struct *mm, struct sysmmu_prefbuf area[], int num_area)
-{
-	unsigned long *mappings = NULL; /* array of G2D_MAX_VMA_MAPPINGS entries */
-	int cnt = 0;
-	int i;
-
-	mappings = (unsigned long*)kzalloc(
-				sizeof(unsigned long) * G2D_MAX_VMA_MAPPING,
-				GFP_KERNEL);
-	if (!mappings)
-		return NULL;
-
-	down_read(&mm->mmap_sem);
-	for (i = 0; i < num_area; i++) {
-		cnt = vma_lock_mapping_one(mm, area[i].base, area[i].size, mappings, cnt);
-		if (cnt == G2D_MAX_VMA_MAPPING) {
-			pr_err("%s: area crosses to many vmas\n", __func__);
-			break;
-		}
-	}
-
-	if (cnt == 0) {
-		kfree(mappings);
-		mappings = NULL;
-	}
-
-	up_read(&mm->mmap_sem);
-	return (void *)mappings;
-}
-
-static void vma_unlock_mapping(void *__mappings)
-{
-	int i;
-	unsigned long *mappings = __mappings;
-
-	if (!mappings)
-		return;
-
-	for (i = 0; i < G2D_MAX_VMA_MAPPING; i++) {
-		if (mappings[i]) {
-			if (mappings[i] & PAGE_MAPPING_ANON) {
-				page_unlock_anon_vma(
-					(struct anon_vma *)(mappings[i] &
-							~PAGE_MAPPING_FLAGS));
-			} else {
-				struct address_space *mapping = (void *)mappings[i];
-				mutex_unlock(&mapping->i_mmap_mutex);
-			}
-		}
-	}
-
-	kfree(mappings);
-}
 
 #ifdef CONFIG_PM_RUNTIME
 static int fimg2d4x_get_clk_cnt(struct clk *clk)
@@ -203,7 +73,6 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 	enum addr_space addr_type;
 	struct fimg2d_context *ctx;
 	struct fimg2d_bltcmd *cmd;
-	unsigned long *pgd;
 
 	fimg2d_debug("%s : enter blitter\n", __func__);
 
@@ -226,28 +95,6 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 
 		addr_type = cmd->image[IDST].addr.type;
 
-		ctx->vma_lock = vma_lock_mapping(ctx->mm, prefbuf, MAX_IMAGES -1);
-
-		if (fimg2d_check_pgd(ctx->mm, cmd)) {
-			ret = -EFAULT;
-			goto fail_n_del;
-		}
-
-		if (addr_type == ADDR_USER || addr_type == ADDR_USER_CONTIG) {
-			if(!ctx->mm || !ctx->mm->pgd) {
-				atomic_set(&ctrl->busy, 0);
-				goto fail_n_del;
-			}
-			pgd = (unsigned long *)ctx->mm->pgd;
-			exynos_sysmmu_enable(ctrl->dev,
-					(unsigned long)virt_to_phys(pgd));
-			fimg2d_debug("%s : sysmmu enable: pgd %p ctx %p seq_no(%u)\n",
-				__func__, pgd, ctx, cmd->blt.seq_no);
-
-			exynos_sysmmu_set_pbuf(ctrl->dev, nbufs, prefbuf);
-			fimg2d_debug("%s : set smmu prefbuf\n", __func__);
-		}
-
 		fimg2d4x_pre_bitblt(ctrl, cmd);
 
 		perf_start(cmd, PERF_BLIT);
@@ -257,12 +104,7 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 		ret = fimg2d4x_blit_wait(ctrl, cmd);
 		perf_end(cmd, PERF_BLIT);
 
-		if (addr_type == ADDR_USER || addr_type == ADDR_USER_CONTIG) {
-			exynos_sysmmu_disable(ctrl->dev);
-			fimg2d_debug("sysmmu disable\n");
-		}
 fail_n_del:
-		vma_unlock_mapping(ctx->vma_lock);
 		fimg2d_del_command(ctrl, cmd);
 	}
 
@@ -367,7 +209,6 @@ static int fimg2d4x_configure(struct fimg2d_control *ctrl,
 	enum image_sel srcsel, dstsel;
 	struct fimg2d_param *p;
 	struct fimg2d_image *src, *msk, *dst;
-	struct sysmmu_prefbuf *pbuf;
 
 	fimg2d_debug("ctx %p seq_no(%u)\n", cmd->ctx, cmd->blt.seq_no);
 
@@ -414,64 +255,31 @@ static int fimg2d4x_configure(struct fimg2d_control *ctrl,
 	fimg2d4x_set_src_type(ctrl, srcsel);
 	fimg2d4x_set_dst_type(ctrl, dstsel);
 
-	nbufs = 0;
-	pbuf = &prefbuf[nbufs];
-
 	/* src */
 	if (src->addr.type) {
-		fimg2d4x_set_src_image(ctrl, src);
+		fimg2d4x_set_src_image(ctrl, src, cmd->dma[ISRC]);
 		fimg2d4x_set_src_rect(ctrl, &src->rect);
 		fimg2d4x_set_src_repeat(ctrl, &p->repeat);
 		if (p->scaling.mode)
 			fimg2d4x_set_src_scaling(ctrl, &p->scaling, &p->repeat);
-
-		/* prefbuf */
-		pbuf->base = cmd->dma[ISRC].base.addr;
-		pbuf->size = cmd->dma[ISRC].base.size;
-		nbufs++;
-		pbuf++;
-		if (src->order == P2_CRCB || src->order == P2_CBCR) {
-			pbuf->base = cmd->dma[ISRC].plane2.addr;
-			pbuf->size = cmd->dma[ISRC].plane2.size;
-			nbufs++;
-			pbuf++;
-		}
 	}
 
 	/* msk */
 	if (msk->addr.type) {
 		fimg2d4x_enable_msk(ctrl);
-		fimg2d4x_set_msk_image(ctrl, msk);
+		fimg2d4x_set_msk_image(ctrl, msk, cmd->dma[IMSK]);
 		fimg2d4x_set_msk_rect(ctrl, &msk->rect);
 		fimg2d4x_set_msk_repeat(ctrl, &p->repeat);
 		if (p->scaling.mode)
 			fimg2d4x_set_msk_scaling(ctrl, &p->scaling, &p->repeat);
-
-		/* prefbuf */
-		pbuf->base = cmd->dma[IMSK].base.addr;
-		pbuf->size = cmd->dma[IMSK].base.size;
-		nbufs++;
-		pbuf++;
 	}
 
 	/* dst */
 	if (dst->addr.type) {
-		fimg2d4x_set_dst_image(ctrl, dst);
+		fimg2d4x_set_dst_image(ctrl, dst, cmd->dma[IDST]);
 		fimg2d4x_set_dst_rect(ctrl, &dst->rect);
 		if (p->clipping.enable)
 			fimg2d4x_enable_clipping(ctrl, &p->clipping);
-
-		/* prefbuf */
-		pbuf->base = cmd->dma[IDST].base.addr;
-		pbuf->size = cmd->dma[IDST].base.size;
-		nbufs++;
-		pbuf++;
-		if (dst->order == P2_CRCB || dst->order == P2_CBCR) {
-			pbuf->base = cmd->dma[IDST].plane2.addr;
-			pbuf->size = cmd->dma[IDST].plane2.size;
-			nbufs++;
-			pbuf++;
-		}
 	}
 
 	/* bluescreen */

@@ -11,7 +11,6 @@
 */
 
 #include "fimg2d.h"
-#include "fimg2d_cache.h"
 #include "fimg2d_helper.h"
 
 static char *opname(enum blit_op op)
@@ -106,22 +105,6 @@ static char *cfname(enum color_format fmt)
 	}
 }
 
-static char *imagename(enum image_object image)
-{
-	switch (image) {
-	case ISRC:
-		return "SRC";
-	case IMSK:
-		return "MSK";
-	case ITMP:
-		return "TMP";
-	case IDST:
-		return "DST";
-	default:
-		return NULL;
-	}
-}
-
 static char *perfname(enum perf_desc id)
 {
 	switch (id) {
@@ -144,7 +127,6 @@ void fimg2d_debug_command(struct fimg2d_bltcmd *cmd)
 	struct fimg2d_param *p = &cmd->blt.param;
 	struct fimg2d_image *img;
 	struct fimg2d_rect *r;
-	struct fimg2d_dma *c;
 
 	if (WARN_ON(!cmd->ctx))
 		return;
@@ -182,14 +164,18 @@ void fimg2d_debug_command(struct fimg2d_bltcmd *cmd)
 	}
 
 	for (i = 0; i < MAX_IMAGES; i++) {
+		size_t num_planes, j;
 		img = &cmd->image[i];
 		r = &img->rect;
 
 		if (!img->addr.type)
 			continue;
 
-		pr_info(" %s type: %d addr: 0x%lx\n",
-				imagename(i), img->addr.type, img->addr.start);
+		num_planes = fimg2d_num_planes(img);
+		for (j = 0; j < num_planes; j++) {
+			pr_info(" %s fd[%u]: %d\n",
+					imagename(i), j, img->addr.fd[j]);
+		}
 
 		pr_info(" %s width: %d height: %d " \
 				"stride: %d order: %d format: %s(%d)\n",
@@ -199,34 +185,7 @@ void fimg2d_debug_command(struct fimg2d_bltcmd *cmd)
 		pr_info(" %s rect LT(%d,%d) RB(%d,%d) WH(%d,%d)\n",
 				imagename(i), r->x1, r->y1, r->x2, r->y2,
 				rect_w(r), rect_h(r));
-
-		c = &cmd->dma[i].base;
-		if (c->size) {
-			pr_info(" %s dma base addr: 0x%lx " \
-					"size: 0x%x cached: 0x%x\n",
-					imagename(i), c->addr, c->size,
-					c->cached);
-		}
-
-		if (img->plane2.type) {
-			pr_info(" %s plane2 type: %d addr: 0x%lx\n",
-					imagename(i), img->plane2.type,
-					img->plane2.start);
-		}
-
-		c = &cmd->dma[i].plane2;
-		if (c->size) {
-			pr_info(" %s dma plane2 addr: 0x%lx " \
-					"size: 0x%x cached: 0x%x\n",
-					imagename(i), c->addr, c->size,
-					c->cached);
-		}
 	}
-
-	if (cmd->dma_all)
-		pr_info(" dma size all: 0x%x bytes\n", cmd->dma_all);
-
-	pr_info(" L1: 0x%x L2: 0x%x bytes\n", L1_CACHE_SIZE, L2_CACHE_SIZE);
 }
 
 void fimg2d_debug_command_simple(struct fimg2d_bltcmd *cmd)

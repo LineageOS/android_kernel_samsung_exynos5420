@@ -29,13 +29,13 @@
 #include <asm/cacheflush.h>
 #include <plat/cpu.h>
 #include <plat/fimg2d.h>
+#include <plat/iovmm.h>
 #include <plat/sysmmu.h>
 #include <linux/pm_runtime.h>
 #include <mach/pm_interrupt_domains.h>
 #include "fimg2d.h"
 #include "fimg2d_clk.h"
 #include "fimg2d_ctx.h"
-#include "fimg2d_cache.h"
 #include "fimg2d_helper.h"
 
 #define POLL_TIMEOUT	2	/* 2 msec */
@@ -195,11 +195,6 @@ static int fimg2d_sysmmu_fault_handler(struct device *dev, const char *mmuname,
 	if (WARN_ON(!cmd))
 		goto next;
 
-	if (cmd->ctx->mm->pgd != phys_to_virt(pgtable_base)) {
-		fimg2d_err("pgtable base invalid\n");
-		goto next;
-	}
-
 	fimg2d_dump_command(cmd);
 
 next:
@@ -297,108 +292,42 @@ static unsigned int fimg2d_poll(struct file *file, struct poll_table_struct *wai
 	return 0;
 }
 
-static int store_user_dst(struct fimg2d_blit __user *buf,
-		struct fimg2d_dma *dst_buf)
-{
-	struct fimg2d_blit blt;
-	struct fimg2d_clip *clp;
-	struct fimg2d_image dst_img;
-	int clp_h, bpp, stride;
-
-	int len = sizeof(struct fimg2d_image);
-
-	memset(&dst_img, 0, len);
-
-	if (copy_from_user(&blt, buf, sizeof(blt)))
-		return -EFAULT;
-
-	if (blt.dst)
-		if (copy_from_user(&dst_img, blt.dst, len))
-			return -EFAULT;
-
-	clp = &blt.param.clipping;
-	clp_h = clp->y2 - clp->y1;
-
-	bpp = bit_per_pixel(&dst_img, 0);
-	stride = width2bytes(dst_img.width, bpp);
-
-	dst_buf->addr = dst_img.addr.start + (stride * clp->y1);
-	dst_buf->size = stride * clp_h;
-
-	return 0;
-}
-
 static long fimg2d_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	struct fimg2d_context *ctx;
-	struct mm_struct *mm;
-	struct fimg2d_dma *usr_dst;
 
 	ctx = file->private_data;
 
 	switch (cmd) {
 	case FIMG2D_BITBLT_BLIT:
 
-		mm = get_task_mm(current);
-		if (!mm) {
-			fimg2d_err("no mm for ctx\n");
-			return -ENXIO;
-		}
-
-		mutex_lock(&ctrl->drvlock);
-		ctx->mm = mm;
-
 		if (atomic_read(&ctrl->drvact) ||
 				atomic_read(&ctrl->suspended)) {
 			fimg2d_err("driver is unavailable, do sw fallback\n");
-			mutex_unlock(&ctrl->drvlock);
-			mmput(mm);
 			return -EPERM;
+		}
+
+		ret = iovmm_activate(ctrl->dev);
+		if (ret < 0) {
+			dev_err(ctrl->dev, "failed to activate vmm\n");
+			return ret;
 		}
 
 		ret = fimg2d_add_command(ctrl, ctx, (struct fimg2d_blit __user *)arg);
 		if (ret) {
 			fimg2d_err("add command not allowed.\n");
-			mutex_unlock(&ctrl->drvlock);
-			mmput(mm);
-			return ret;
-		}
-
-		usr_dst = kzalloc(sizeof(struct fimg2d_dma), GFP_KERNEL);
-		if (!usr_dst) {
-			fimg2d_err("failed to allocate memory for fimg2d_dma\n");
-			mutex_unlock(&ctrl->drvlock);
-			mmput(mm);
-			return -ENOMEM;
-		}
-
-		ret = store_user_dst((struct fimg2d_blit __user *)arg, usr_dst);
-		if (ret) {
-			fimg2d_err("store_user_dst() not allowed.\n");
-			mutex_unlock(&ctrl->drvlock);
-			kfree(usr_dst);
-			mmput(mm);
 			return ret;
 		}
 
 		ret = fimg2d_request_bitblt(ctrl, ctx);
 		if (ret) {
 			fimg2d_err("request bitblit not allowed.\n");
-			mutex_unlock(&ctrl->drvlock);
-			kfree(usr_dst);
-			mmput(mm);
 			return -EBUSY;
 		}
 
-		mutex_unlock(&ctrl->drvlock);
+		iovmm_deactivate(ctrl->dev);
 
-		fimg2d_debug("addr : %p, size : %d\n",
-				(void *)usr_dst->addr, usr_dst->size);
-		fimg2d_dma_unsync_inner(usr_dst->addr,
-				usr_dst->size, DMA_FROM_DEVICE);
-		kfree(usr_dst);
-		mmput(mm);
 		break;
 
 	case FIMG2D_BITBLT_VERSION:

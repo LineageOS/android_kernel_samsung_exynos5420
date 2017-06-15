@@ -19,6 +19,30 @@
 #define rect_w(r)	((r)->x2 - (r)->x1)
 #define rect_h(r)	((r)->y2 - (r)->y1)
 
+static inline char *imagename(enum image_object image)
+{
+	switch (image) {
+	case ISRC:
+		return "SRC";
+	case IMSK:
+		return "MSK";
+	case ITMP:
+		return "TMP";
+	case IDST:
+		return "DST";
+	default:
+		return NULL;
+	}
+}
+
+static inline size_t fimg2d_num_planes(struct fimg2d_image *img)
+{
+	if (!img->addr.type)
+		return 0;
+
+	return img->order < P1_ORDER_END ? 1 : 2;
+}
+
 #ifdef DEBUG
 void fimg2d_perf_start(struct fimg2d_bltcmd *cmd, enum perf_desc desc);
 void fimg2d_perf_end(struct fimg2d_bltcmd *cmd, enum perf_desc desc);
