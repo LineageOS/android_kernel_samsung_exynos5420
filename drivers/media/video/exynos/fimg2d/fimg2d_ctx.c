@@ -152,7 +152,8 @@ static int fimg2d_check_address(struct fimg2d_bltcmd *cmd)
 	return 0;
 }
 
-static int fimg2d_check_params(struct fimg2d_bltcmd *cmd)
+static int fimg2d_check_params(struct fimg2d_control *info,
+		struct fimg2d_bltcmd *cmd)
 {
 	struct fimg2d_blit *blt = &cmd->blt;
 	struct fimg2d_image *img;
@@ -187,13 +188,64 @@ static int fimg2d_check_params(struct fimg2d_bltcmd *cmd)
 		r = &img->rect;
 
 		/* 8000: max width & height */
-		if (w > 8000 || h > 8000)
+		if (w > 8000 || h > 8000) {
+			dev_err(info->dev, "%s too large (w = %d, h = %d)\n",
+					imagename(i), w, h);
 			return -1;
+		}
 
 		if (r->x1 < 0 || r->y1 < 0 ||
 			r->x1 >= w || r->y1 >= h ||
-			r->x1 >= r->x2 || r->y1 >= r->y2)
+			r->x1 >= r->x2 || r->y1 >= r->y2) {
+			dev_err(info->dev,
+					"%s has invalid clipping rectangle (r = [%d, %d, %d, %d], w = %d, h = %d)\n",
+					imagename(i), r->x1, r->y1, r->x2,
+					r->y2, w, h);
 			return -1;
+		}
+
+		if (is_yuvfmt(img->fmt) && img->stride != w) {
+			dev_err(info->dev,
+					"YUV %s stride and width not equal (stride = %d, w = %d)\n",
+					imagename(i), img->stride, w);
+			return -1;
+		}
+
+		if (img->fmt == CF_YCBCR_422 ||
+				img->fmt == CF_YCBCR_420) {
+			const char *fmtname = img->fmt == CF_YCBCR_422 ?
+					"YCbCr422" : "YCbCr420";
+
+			if ((r->x1 & 1) ||
+					(r->x2 & 1)) {
+				dev_err(info->dev,
+						"%s %s clipping rectangle X coordinates not even (x1 = %d, x2 = %d)\n",
+						fmtname, imagename(i),
+						r->x1, r->x2);
+				return -1;
+
+			}
+
+			if (img->stride & 1) {
+				dev_err(info->dev,
+						"%s %s stride not even (stride = %d)\n",
+						fmtname, imagename(i),
+						img->stride);
+				return -1;
+			}
+		}
+
+		if (img->fmt == CF_YCBCR_420) {
+			if ((r->y1 & 1) ||
+					(r->y2 & 1)) {
+				dev_err(info->dev,
+						"YCbCr420 %s clipping rectangle Y coordinates not even (y1 = %d, y2 = %d)\n",
+						imagename(i),
+						r->y1, r->y2);
+				return -1;
+
+			}
+		}
 
 		/* DO support only UVA */
 		if (img->addr.type != ADDR_USER)
@@ -687,7 +739,7 @@ int fimg2d_add_command(struct fimg2d_control *ctrl,
 
 	perf_start(cmd, PERF_TOTAL);
 
-	if (fimg2d_check_params(cmd)) {
+	if (fimg2d_check_params(info, cmd)) {
 		ret = -EINVAL;
 		goto err;
 	}
