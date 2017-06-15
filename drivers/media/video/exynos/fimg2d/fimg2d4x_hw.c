@@ -115,11 +115,12 @@ void fimg2d4x_set_src_type(struct fimg2d_control *ctrl, enum image_sel type)
 	wr(cfg, FIMG2D_SRC_SELECT_REG);
 }
 
-void fimg2d4x_set_src_image(struct fimg2d_control *ctrl, struct fimg2d_image *s)
+void fimg2d4x_set_src_image(struct fimg2d_control *ctrl, struct fimg2d_image *s,
+			    struct fimg2d_dma *dma)
 {
 	unsigned long cfg;
 
-	wr(FIMG2D_ADDR(s->addr.start), FIMG2D_SRC_BASE_ADDR_REG);
+	wr(FIMG2D_ADDR(dma[0].dma_addr), FIMG2D_SRC_BASE_ADDR_REG);
 	wr(FIMG2D_STRIDE(s->stride), FIMG2D_SRC_STRIDE_REG);
 
 	if (s->order < ARGB_ORDER_END) {	/* argb */
@@ -132,7 +133,7 @@ void fimg2d4x_set_src_image(struct fimg2d_control *ctrl, struct fimg2d_image *s)
 		cfg = (s->order - P2_CRCB) << FIMG2D_YCBCR_ORDER_SHIFT;
 		cfg |= FIMG2D_YCBCR_2PLANE;
 
-		wr(FIMG2D_ADDR(s->plane2.start),
+		wr(FIMG2D_ADDR(dma[1].dma_addr),
 				FIMG2D_SRC_PLANE2_BASE_ADDR_REG);
 	}
 
@@ -164,11 +165,12 @@ void fimg2d4x_set_dst_type(struct fimg2d_control *ctrl, enum image_sel type)
 /**
  * @d: set base address, stride, color format, order
  */
-void fimg2d4x_set_dst_image(struct fimg2d_control *ctrl, struct fimg2d_image *d)
+void fimg2d4x_set_dst_image(struct fimg2d_control *ctrl, struct fimg2d_image *d,
+			    struct fimg2d_dma *dma)
 {
 	unsigned long cfg;
 
-	wr(FIMG2D_ADDR(d->addr.start), FIMG2D_DST_BASE_ADDR_REG);
+	wr(FIMG2D_ADDR(dma[0].dma_addr), FIMG2D_DST_BASE_ADDR_REG);
 	wr(FIMG2D_STRIDE(d->stride), FIMG2D_DST_STRIDE_REG);
 
 	if (d->order < ARGB_ORDER_END) {
@@ -181,7 +183,7 @@ void fimg2d4x_set_dst_image(struct fimg2d_control *ctrl, struct fimg2d_image *d)
 		cfg = (d->order - P2_CRCB) << FIMG2D_YCBCR_ORDER_SHIFT;
 		cfg |= FIMG2D_YCBCR_2PLANE;
 
-		wr(FIMG2D_ADDR(d->plane2.start),
+		wr(FIMG2D_ADDR(dma[1].dma_addr),
 				FIMG2D_DST_PLANE2_BASE_ADDR_REG);
 	}
 
@@ -206,11 +208,12 @@ void fimg2d4x_enable_msk(struct fimg2d_control *ctrl)
 	wr(cfg, FIMG2D_BITBLT_COMMAND_REG);
 }
 
-void fimg2d4x_set_msk_image(struct fimg2d_control *ctrl, struct fimg2d_image *m)
+void fimg2d4x_set_msk_image(struct fimg2d_control *ctrl, struct fimg2d_image *m,
+			    struct fimg2d_dma *dma)
 {
 	unsigned long cfg;
 
-	wr(FIMG2D_ADDR(m->addr.start), FIMG2D_MSK_BASE_ADDR_REG);
+	wr(FIMG2D_ADDR(dma[0].dma_addr), FIMG2D_MSK_BASE_ADDR_REG);
 	wr(FIMG2D_STRIDE(m->stride), FIMG2D_MSK_STRIDE_REG);
 
 	cfg = m->order << FIMG2D_MSK_ORDER_SHIFT;
