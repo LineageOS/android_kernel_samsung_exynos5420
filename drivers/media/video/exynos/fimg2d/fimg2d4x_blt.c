@@ -31,6 +31,9 @@
 #include "fimg2d_ctx.h"
 #include "fimg2d_helper.h"
 
+#define CREATE_TRACE_POINTS
+#include "fimg2d_trace.h"
+
 #define BLIT_TIMEOUT	msecs_to_jiffies(8000)
 
 #ifdef CONFIG_PM_RUNTIME
@@ -89,20 +92,18 @@ int fimg2d4x_bitblt(struct fimg2d_control *ctrl)
 #endif
 
 		atomic_set(&ctrl->busy, 1);
-		perf_start(cmd, PERF_SFR);
 		ctrl->configure(ctrl, cmd);
-		perf_end(cmd, PERF_SFR);
 
 		addr_type = cmd->image[IDST].addr.type;
 
 		fimg2d4x_pre_bitblt(ctrl, cmd);
 
-		perf_start(cmd, PERF_BLIT);
+		trace_fimg2d_bitblt_start(cmd->blt.seq_no);
 		/* start blit */
 		fimg2d_debug("%s : start blit\n", __func__);
 		ctrl->run(ctrl);
 		ret = fimg2d4x_blit_wait(ctrl, cmd);
-		perf_end(cmd, PERF_BLIT);
+		trace_fimg2d_bitblt_end(cmd->blt.seq_no);
 
 fail_n_del:
 		fimg2d_del_command(ctrl, cmd);

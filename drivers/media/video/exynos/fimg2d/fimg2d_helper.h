@@ -44,34 +44,6 @@ static inline size_t fimg2d_num_planes(struct fimg2d_image *img)
 }
 
 #ifdef DEBUG
-void fimg2d_perf_start(struct fimg2d_bltcmd *cmd, enum perf_desc desc);
-void fimg2d_perf_end(struct fimg2d_bltcmd *cmd, enum perf_desc desc);
-void fimg2d_perf_print(struct fimg2d_bltcmd *cmd);
-
-static inline void perf_start(struct fimg2d_bltcmd *cmd, enum perf_desc desc)
-{
-	if (g2d_debug == DBG_PERF)
-		fimg2d_perf_start(cmd, desc);
-}
-
-static inline void perf_end(struct fimg2d_bltcmd *cmd, enum perf_desc desc)
-{
-	if (g2d_debug == DBG_PERF)
-		fimg2d_perf_end(cmd, desc);
-}
-
-static inline void perf_print(struct fimg2d_bltcmd *cmd)
-{
-	if (g2d_debug == DBG_PERF)
-		fimg2d_perf_print(cmd);
-}
-#else
-#define perf_start(cmd, desc)
-#define perf_end(cmd, desc)
-#define perf_print(cmd)
-#endif
-
-#ifdef DEBUG
 void fimg2d_debug_command(struct fimg2d_bltcmd *cmd);
 void fimg2d_debug_command_simple(struct fimg2d_bltcmd *cmd);
 

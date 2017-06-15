@@ -105,22 +105,6 @@ static char *cfname(enum color_format fmt)
 	}
 }
 
-static char *perfname(enum perf_desc id)
-{
-	switch (id) {
-	case PERF_CACHE:
-		return "CACHE";
-	case PERF_SFR:
-		return "SFR";
-	case PERF_BLIT:
-		return "BLT";
-	case PERF_TOTAL:
-		return "TOTAL";
-	default:
-		return "";
-	}
-}
-
 void fimg2d_debug_command(struct fimg2d_bltcmd *cmd)
 {
 	int i;
@@ -225,70 +209,4 @@ void fimg2d_debug_command_simple(struct fimg2d_bltcmd *cmd)
 				dst->rect.x1, dst->rect.y1,
 				dst->rect.x2, dst->rect.y2);
 	}
-}
-
-static long elapsed_usec(struct fimg2d_context *ctx, enum perf_desc desc)
-{
-	struct fimg2d_perf *perf = &ctx->perf[desc];
-	struct timeval *start = &perf->start;
-	struct timeval *end = &perf->end;
-	long sec, usec;
-
-	sec = end->tv_sec - start->tv_sec;
-	if (end->tv_usec >= start->tv_usec) {
-		usec = end->tv_usec - start->tv_usec;
-	} else {
-		usec = end->tv_usec + 1000000 - start->tv_usec;
-		sec--;
-	}
-	return sec * 1000000 + usec;
-}
-
-void fimg2d_perf_start(struct fimg2d_bltcmd *cmd, enum perf_desc desc)
-{
-	struct fimg2d_perf *perf;
-	struct timeval time;
-
-	if (WARN_ON(!cmd->ctx))
-		return;
-
-	perf = &cmd->ctx->perf[desc];
-
-	do_gettimeofday(&time);
-	perf->start = time;
-	perf->seq_no = cmd->blt.seq_no;
-}
-
-void fimg2d_perf_end(struct fimg2d_bltcmd *cmd, enum perf_desc desc)
-{
-	struct fimg2d_perf *perf;
-	struct timeval time;
-
-	if (WARN_ON(!cmd->ctx))
-		return;
-
-	perf = &cmd->ctx->perf[desc];
-
-	do_gettimeofday(&time);
-	perf->end = time;
-	perf->seq_no = cmd->blt.seq_no;
-}
-
-void fimg2d_perf_print(struct fimg2d_bltcmd *cmd)
-{
-	int i;
-	long time;
-	struct fimg2d_perf *perf;
-
-	if (WARN_ON(!cmd->ctx))
-		return;
-
-	for (i = 0; i < MAX_PERF_DESCS; i++) {
-		perf = &cmd->ctx->perf[i];
-		time = elapsed_usec(cmd->ctx, i);
-		pr_info("[FIMG2D PERF (%8s)] ctx(0x%08x) seq(%d) %8ld   usec\n",
-				perfname(i), (unsigned int)cmd->ctx,
-				perf->seq_no, time);
-	}
-	pr_info("[FIMG2D PERF ** seq(%d)]\n", cmd->blt.seq_no);
 }
