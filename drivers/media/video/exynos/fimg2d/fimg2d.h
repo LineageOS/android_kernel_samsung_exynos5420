@@ -424,21 +424,6 @@ struct fimg2d_blit {
 
 #ifdef __KERNEL__
 
-enum perf_desc {
-	PERF_CACHE = 0,
-	PERF_SFR,
-	PERF_BLIT,
-	PERF_TOTAL,
-	PERF_END
-};
-#define MAX_PERF_DESCS		PERF_END
-
-struct fimg2d_perf {
-	unsigned int seq_no;
-	struct timeval start;
-	struct timeval end;
-};
-
 /**
  * @ncmd: request count in blit command queue
  * @wait_q: conext wait queue head
@@ -446,7 +431,6 @@ struct fimg2d_perf {
 struct fimg2d_context {
 	atomic_t ncmd;
 	wait_queue_head_t wait_q;
-	struct fimg2d_perf perf[MAX_PERF_DESCS];
 	void *vma_lock;
 };
 

@@ -433,8 +433,6 @@ int fimg2d_add_command(struct fimg2d_control *ctrl,
 
 	fimg2d_dump_command(cmd);
 
-	perf_start(cmd, PERF_TOTAL);
-
 	if (fimg2d_check_params(ctrl, cmd)) {
 		ret = -EINVAL;
 		goto err;
@@ -477,8 +475,6 @@ void fimg2d_del_command(struct fimg2d_control *ctrl, struct fimg2d_bltcmd *cmd)
 		for (j = 0; j < FIMG2D_MAX_PLANES; j++)
 			fimg2d_unmap_dma_buf(ctrl, &cmd->dma[i][j]);
 
-	perf_end(cmd, PERF_TOTAL);
-	perf_print(cmd);
 	g2d_spin_lock(&ctrl->bltlock, flags);
 	fimg2d_dequeue(&cmd->node);
 	kfree(cmd);
