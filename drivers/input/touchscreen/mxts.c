@@ -38,6 +38,11 @@
 #include <asm/bug.h>
 #endif
 
+/* Added for samsung dependent codes such as Factory test,
+ * Touch booster, Related debug sysfs.
+ */
+#include "mxts_sec.c"
+
 #if defined(CONFIG_INPUT_BOOSTER) || defined(TSP_BOOSTER)
 static unsigned int TSP_BOOSTER_ENABLED = 1;
 
@@ -1944,8 +1949,12 @@ static int mxt_start(struct mxt_data *data)
 	error = mxt_power_on(data);
 	if (error)
 		tsp_debug_err(true, &data->client->dev, "Fail to start touch\n");
-	else
+	else{
+#ifdef LED_LDO_WITH_REGULATOR
+    	change_touch_key_led_voltage(touchkey_voltage_brightness);
+#endif
 		enable_irq(data->client->irq);
+    }
 
 	return error;
 }
@@ -2374,11 +2383,6 @@ static void mxt_shutdown(struct i2c_client *client)
 	data->pdata->led_power_off();
 #endif
 }
-
-/* Added for samsung dependent codes such as Factory test,
- * Touch booster, Related debug sysfs.
- */
-#include "mxts_sec.c"
 
 static int __devinit mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
