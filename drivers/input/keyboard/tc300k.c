@@ -187,6 +187,57 @@ static void tc300k_late_resume(struct early_suspend *h);
 static void tc300k_input_close(struct input_dev *dev);
 static int tc300k_input_open(struct input_dev *dev);
 
+#ifdef LED_LDO_WITH_REGULATOR
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
+
+#define BL_STANDARD	3000
+#define BL_MIN		2500
+#define BL_MAX		3300
+
+static unsigned int touchkey_voltage_brightness = BL_STANDARD;
+
+static void change_touch_key_led_voltage(int vol_mv)
+{
+	struct regulator *tled_regulator;
+
+	tled_regulator = regulator_get(NULL, TK_LED_REGULATOR_NAME);
+	if (IS_ERR(tled_regulator)) {
+		pr_err("%s: failed to get resource %s\n", __func__,
+		       "touchkey_led");
+		return;
+	}
+	regulator_set_voltage(tled_regulator, vol_mv * 1000, vol_mv * 1000);
+	regulator_put(tled_regulator);
+}
+
+void update_touchkey_brightness(unsigned int level)
+{
+	if (level > 0 && level < 256) {
+		printk(KERN_DEBUG "[TouchKey-LED] %s: %d\n", __func__, level);
+		touchkey_voltage_brightness = BL_MIN + ((((level * 100 / 255) * (BL_MAX - BL_MIN)) / 100) / 50) * 50;
+		change_touch_key_led_voltage(touchkey_voltage_brightness);
+	} else {
+		printk(KERN_DEBUG "[TouchKey-LED] %s: Ignoring brightness : %d\n", __func__, level);
+	}
+}
+#endif
+
+static void release_all_fingers(struct tc300k_data *data)
+{
+	struct i2c_client *client = data->client;
+	int i;
+
+	dev_dbg(&client->dev, "[TK] %s\n", __func__);
+
+	for (i = 1; i < data->key_num; i++) {
+		input_report_key(data->input_dev,
+			data->keycode[i], 0);
+#ifdef CONFIG_INPUT_BOOSTER
+		INPUT_BOOSTER_SEND_EVENT(data->keycode[i],
+			BOOSTER_MODE_FORCE_OFF);
+#endif
 static void release_all_fingers(struct tc300k_data *data)
 {
 	struct i2c_client *client = data->client;
@@ -388,6 +439,13 @@ static ssize_t tc300k_led_control(struct device *dev,
 		dev_err(&client->dev, "%s: cmd read err\n", __func__);
 		return count;
 	}
+
+#ifdef LED_LDO_WITH_REGULATOR
+	if (scan_buffer > 1 && tc300k_tk_enabled) {
+		update_touchkey_brightness(scan_buffer);
+	}
+	scan_buffer = scan_buffer ? 1 : 0;
+#endif
 
 	if (!(scan_buffer == 0 || scan_buffer == 1)) {
 		dev_err(&client->dev, "%s: wrong command(%d)\n",
@@ -1824,6 +1882,9 @@ static int tc300k_resume(struct device *dev)
 	msleep(70);
 	data->pdata->keyled(true);
 	msleep(130);
+#ifdef LED_LDO_WITH_REGULATOR
+    change_touch_key_led_voltage(touchkey_voltage_brightness);
+#endif
 	enable_irq(data->irq);
 
 	data->enabled = true;
