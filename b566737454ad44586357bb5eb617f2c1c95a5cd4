@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "da87b5cf_bcf85ce6",
+        "filename": "drivers/input/touchscreen/mxts_sec.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 1989,
+      "author": {
+        "id": 15776
+      },
+      "writtenOn": "2017-06-19T00:14:48Z",
+      "side": 1,
+      "message": "if (input \u003e 0) ?",
+      "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
