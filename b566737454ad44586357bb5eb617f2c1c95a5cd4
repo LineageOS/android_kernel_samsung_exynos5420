@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "da87b5cf_bf2b6e2f",
+        "filename": "drivers/input/touchscreen/mxts_sec.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 1976,
+      "author": {
+        "id": 16012
+      },
+      "writtenOn": "2017-06-19T22:18:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "da87b5cf_9c6d5807",
+      "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "da87b5cf_bc729ce3",
         "filename": "drivers/input/touchscreen/mxts_sec.c",
         "patchSetId": 3
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "da87b5cf_9f26aa67",
+        "filename": "drivers/input/touchscreen/mxts_sec.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 1979,
+      "author": {
+        "id": 16012
+      },
+      "writtenOn": "2017-06-19T22:18:50Z",
+      "side": 1,
+      "message": "this is not how ternary operators work... the statement above is equivalent to \n\nif (input)\n    input \u003d 1;\nelse\n    input \u003d 0;\n\nso, when input \u003e\u003d 1, then 1 is assigned to input, to keep the logic above consistent...",
+      "parentUuid": "da87b5cf_bc729ce3",
+      "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "da87b5cf_bcf85ce6",
         "filename": "drivers/input/touchscreen/mxts_sec.c",
         "patchSetId": 3
@@ -47,6 +83,24 @@
       "writtenOn": "2017-06-19T00:14:48Z",
       "side": 1,
       "message": "if (input \u003e 0) ?",
+      "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da87b5cf_5f202249",
+        "filename": "drivers/input/touchscreen/mxts_sec.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 1989,
+      "author": {
+        "id": 16012
+      },
+      "writtenOn": "2017-06-19T22:18:50Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "da87b5cf_bcf85ce6",
       "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": false
