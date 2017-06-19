@@ -2,6 +2,40 @@
   "comments": [
     {
       "key": {
+        "uuid": "da87b5cf_9c6d5807",
+        "filename": "drivers/input/touchscreen/mxts_sec.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 1976,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2017-06-19T10:30:56Z",
+      "side": 1,
+      "message": "This assumes the value of the variable \"input\" can be greater than 1.",
+      "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "da87b5cf_bc729ce3",
+        "filename": "drivers/input/touchscreen/mxts_sec.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 1979,
+      "author": {
+        "id": 9760
+      },
+      "writtenOn": "2017-06-19T10:30:56Z",
+      "side": 1,
+      "message": "And here, either 1 or 0\nThis is not entirely true, based on my first comment.",
+      "revId": "b566737454ad44586357bb5eb617f2c1c95a5cd4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "da87b5cf_bcf85ce6",
         "filename": "drivers/input/touchscreen/mxts_sec.c",
         "patchSetId": 3
