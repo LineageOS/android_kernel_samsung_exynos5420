@@ -14,7 +14,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/moduleparam.h>
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
@@ -40,18 +39,6 @@
 
 #if TSP_USE_ATMELDBG
 #include <asm/bug.h>
-#endif
-
-#if defined(CONFIG_INPUT_BOOSTER) || defined(TSP_BOOSTER)
-static unsigned int TSP_BOOSTER_ENABLED = 1;
-
-module_param_named(tsp_booster_enabled, TSP_BOOSTER_ENABLED, uint, S_IWUSR | S_IRUGO);
-#endif
-
-#if defined(CONFIG_INPUT_BOOSTER) || defined(TOUCHKEY_BOOSTER)
-static unsigned int TOUCHKEY_BOOSTER_ENABLED = 1;
-
-module_param_named(touchkey_booster_enabled, TOUCHKEY_BOOSTER_ENABLED, uint, S_IWUSR | S_IRUGO);
 #endif
 
 static int mxt_read_mem(struct mxt_data *data, u16 reg, u8 len, void *buf)
@@ -710,11 +697,10 @@ static void mxt_report_input_data(struct mxt_data *data)
 #endif
 	} else {
 #ifdef CONFIG_INPUT_BOOSTER
-		if (booster_restart && TSP_BOOSTER_ENABLED == 1)
+		if (booster_restart)
 			INPUT_BOOSTER_SEND_EVENT(KEY_BOOSTER_TOUCH,
 				BOOSTER_MODE_ON);
 #elif TSP_BOOSTER
-		if (TSP_BOOSTER_ENABLED == 1)
 		mxt_set_dvfs_lock(data, TSP_BOOSTER_ON, booster_restart);
 #endif
 	}
@@ -1006,12 +992,10 @@ static void mxt_treat_T15_object(struct mxt_data *data,
 				tsp_debug_info(true, &data->client->dev,
 					"[TSP_KEY] %d %s\n", code, !!key_state ? "P" : "R");
 #if TOUCHKEY_BOOSTER
-			if (TOUCHKEY_BOOSTER_ENABLED == 1)
 				touchkey_set_dvfs_lock(data, !!key_state);
 #endif
 
 #ifdef CONFIG_INPUT_BOOSTER
-			if (TOUCHKEY_BOOSTER_ENABLED == 1)
 				INPUT_BOOSTER_SEND_EVENT(code, !!key_state);
 #endif
 			}
