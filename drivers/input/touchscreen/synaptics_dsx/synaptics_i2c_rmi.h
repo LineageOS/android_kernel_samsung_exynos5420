@@ -1155,3 +1155,7 @@ static inline void hstoba(unsigned char *dest, unsigned short src)
 	dest[1] = src / 0x100;
 }
 #endif
+
+#if defined(TSP_BOOSTER)
+static unsigned int tsp_booster_enabled = 1;
+#endif
