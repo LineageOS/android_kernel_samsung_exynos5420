@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3ed5be9b_f10a138b",
+        "filename": "drivers/input/keyboard/cypress/cypress-touchkey.c",
+        "patchSetId": 7
+      },
+      "lineNbr": 1372,
+      "author": {
+        "id": 16012
+      },
+      "writtenOn": "2017-07-09T00:25:46Z",
+      "side": 1,
+      "message": "wrong indentation",
+      "revId": "b50cbf3b3502bd7711e7551288532591c30f7aa6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "67c6f770_2856422d",
+        "filename": "drivers/input/touchscreen/mxts_n1.c",
+        "patchSetId": 7
+      },
+      "lineNbr": 979,
+      "author": {
+        "id": 16012
+      },
+      "writtenOn": "2017-07-09T00:25:46Z",
+      "side": 1,
+      "message": "indentation",
+      "revId": "b50cbf3b3502bd7711e7551288532591c30f7aa6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
