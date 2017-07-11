@@ -34,6 +34,10 @@
 
 #define WACOM_FW_PATH "/sdcard/firmware/wacom_firm.bin"
 
+#if defined(WACOM_BOOSTER) || defined(CONFIG_INPUT_BOOSTER)
+unsigned int wacom_booster_enabled = 1;
+#endif
+
 static struct wacom_features wacom_feature_EMR = {
 	.x_max = WACOM_MAX_COORD_X,
 	.y_max = WACOM_MAX_COORD_Y,
