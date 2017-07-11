@@ -47,10 +47,6 @@
 	pm_qos_remove_request(req); \
 }
 
-#if defined(WACOM_BOOSTER) || defined(CONFIG_INPUT_BOOSTER)
-unsigned int wacom_booster_enabled = 1;
-#endif
-
 void wacom_change_dvfs_lock(struct work_struct *work)
 {
 	struct wacom_i2c *wac_i2c =
