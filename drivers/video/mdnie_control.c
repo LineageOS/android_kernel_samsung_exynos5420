@@ -29,6 +29,11 @@ static int br_takeover_point = 30;
 static int br_brightness_delta = 20;
 static int br_component_reduction = 0;
 
+static int rgb_adj = 1;
+static int r_adj = 255;
+static int g_adj = 255;
+static int b_adj = 255;
+
 enum mdnie_registers {
 	EFFECT_MASTER1	= 0x08,	/*SCR2 CC1 | CS2 DE1 | LoG8 WIENER4 NR2 HDR1*/
 	EFFECT_MASTER2	= 0x09,	/*MCM off*/
@@ -249,12 +254,31 @@ static int effect_switch_hook(struct mdnie_effect *effect, unsigned short regval
 	return effect->value ? !regval : regval;
 }
 
+
+
 static int secondary_hook(struct mdnie_effect *effect, int val)
 {
+	int adj;
 	if (effect->abs)
 		val = effect->regval;
 	else
 		val += effect->value;
+
+	if (rgb_adj && effect->reg >= SCR_RR_CR && effect->reg <= SCR_KB_WB) {
+		switch (effect->reg % 3) {
+		case 0:
+			adj = g_adj;
+			break;
+		case 1:
+			adj = b_adj;
+			break;
+		case 2:
+			adj = r_adj;
+			break;
+		}
+
+		val = (val * adj) / 255;
+	}
 
 	if (!(br_reduction))
 		return val;
@@ -445,12 +469,20 @@ MAIN_CONTROL(sequence_intercept, sequence_hook, scheduled_refresh);
 MAIN_CONTROL(br_reduction, br_reduction, forced_brightness);
 MAIN_CONTROL(br_takeover_point, br_takeover_point, forced_brightness);
 MAIN_CONTROL(br_brightness_delta, br_brightness_delta, forced_brightness);
+MAIN_CONTROL(rgb_adj, rgb_adj, scheduled_refresh);
+MAIN_CONTROL(r_adj, r_adj, scheduled_refresh);
+MAIN_CONTROL(g_adj, g_adj, scheduled_refresh);
+MAIN_CONTROL(b_adj, b_adj, scheduled_refresh);
 
 DEVICE_ATTR(hook_intercept, 0664, show_reg_hook, store_reg_hook);
 DEVICE_ATTR(sequence_intercept, 0664, show_sequence_intercept, store_sequence_intercept);
 DEVICE_ATTR(brightness_reduction, 0664, show_br_reduction, store_br_reduction);
 DEVICE_ATTR(brightness_takeover_point, 0664, show_br_takeover_point, store_br_takeover_point);
 DEVICE_ATTR(brightness_input_delta, 0664, show_br_brightness_delta, store_br_brightness_delta);
+DEVICE_ATTR(rgb_adj, 0664, show_rgb_adj, store_rgb_adj);
+DEVICE_ATTR(r_adj, 0664, show_r_adj, store_r_adj);
+DEVICE_ATTR(g_adj, 0664, show_g_adj, store_g_adj);
+DEVICE_ATTR(b_adj, 0664, show_b_adj, store_b_adj);
 
 void init_intercept_control(struct kobject *kobj)
 {
@@ -468,6 +500,10 @@ void init_intercept_control(struct kobject *kobj)
 	ret = sysfs_create_file(kobj, &dev_attr_brightness_reduction.attr);
 	ret = sysfs_create_file(kobj, &dev_attr_brightness_takeover_point.attr);
 	ret = sysfs_create_file(kobj, &dev_attr_brightness_input_delta.attr);
+	ret = sysfs_create_file(kobj, &dev_attr_rgb_adj.attr);
+	ret = sysfs_create_file(kobj, &dev_attr_r_adj.attr);
+	ret = sysfs_create_file(kobj, &dev_attr_g_adj.attr);
+	ret = sysfs_create_file(kobj, &dev_attr_b_adj.attr);
 
 	INIT_DELAYED_WORK(&mdnie_refresh_work, do_mdnie_refresh);
 }
