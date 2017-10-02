@@ -17,9 +17,6 @@
 
 #include "mdnie.h"
 
-#define REFRESH_DELAY		HZ / 2
-static struct delayed_work mdnie_refresh_work;
-
 static bool reg_hook = 0;
 static bool sequence_hook = 0;
 
@@ -345,8 +342,7 @@ unsigned short *mdnie_sequence_hook(unsigned short *seq)
 	return (unsigned short *)&master_sequence;
 }
 
-void do_mdnie_refresh(struct work_struct *work)
-{
+void mdnie_refresh(void) {
 	mdnie_update(g_mdnie, 1);
 }
 
@@ -380,19 +376,13 @@ void mdnie_update_brightness(int brightness, bool is_auto, bool force)
 	br_component_reduction = ((br_reduction) * weight) / 1000;
 
 do_refresh:
-	do_mdnie_refresh(NULL);
+	mdnie_refresh();
 
 update_previous:
 	prev_brightness = brightness;
 	prev_auto = is_auto;
 
 	return;
-}
-
-static inline void scheduled_refresh(void)
-{
-	cancel_delayed_work_sync(&mdnie_refresh_work);
-	schedule_delayed_work_on(0, &mdnie_refresh_work, REFRESH_DELAY);
 }
 
 static inline void forced_brightness(void)
@@ -437,7 +427,7 @@ static ssize_t store_mdnie_property(struct device *dev,
 		effect->regval = val;
 	}
 
-	scheduled_refresh();
+	mdnie_refresh();
 
 	return count;
 };
@@ -464,15 +454,15 @@ static ssize_t store_##_name(struct device *dev,				\
 	return count;								\
 };
 
-MAIN_CONTROL(reg_hook, reg_hook, scheduled_refresh);
-MAIN_CONTROL(sequence_intercept, sequence_hook, scheduled_refresh);
+MAIN_CONTROL(reg_hook, reg_hook, mdnie_refresh);
+MAIN_CONTROL(sequence_intercept, sequence_hook, mdnie_refresh);
 MAIN_CONTROL(br_reduction, br_reduction, forced_brightness);
 MAIN_CONTROL(br_takeover_point, br_takeover_point, forced_brightness);
 MAIN_CONTROL(br_brightness_delta, br_brightness_delta, forced_brightness);
-MAIN_CONTROL(rgb_adj, rgb_adj, scheduled_refresh);
-MAIN_CONTROL(r_adj, r_adj, scheduled_refresh);
-MAIN_CONTROL(g_adj, g_adj, scheduled_refresh);
-MAIN_CONTROL(b_adj, b_adj, scheduled_refresh);
+MAIN_CONTROL(rgb_adj, rgb_adj, mdnie_refresh);
+MAIN_CONTROL(r_adj, r_adj, mdnie_refresh);
+MAIN_CONTROL(g_adj, g_adj, mdnie_refresh);
+MAIN_CONTROL(b_adj, b_adj, mdnie_refresh);
 
 DEVICE_ATTR(hook_intercept, 0664, show_reg_hook, store_reg_hook);
 DEVICE_ATTR(sequence_intercept, 0664, show_sequence_intercept, store_sequence_intercept);
@@ -504,6 +494,4 @@ void init_intercept_control(struct kobject *kobj)
 	ret = sysfs_create_file(kobj, &dev_attr_r_adj.attr);
 	ret = sysfs_create_file(kobj, &dev_attr_g_adj.attr);
 	ret = sysfs_create_file(kobj, &dev_attr_b_adj.attr);
-
-	INIT_DELAYED_WORK(&mdnie_refresh_work, do_mdnie_refresh);
 }
