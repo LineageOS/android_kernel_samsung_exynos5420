@@ -495,20 +495,8 @@ static int wl_android_get_rssi(struct net_device *net, char *command, int total_
 	if ((ssid.SSID_len == 0) || (ssid.SSID_len > DOT11_MAX_SSID_LEN)) {
 		DHD_ERROR(("%s: wldev_get_ssid failed\n", __FUNCTION__));
 	} else {
-		if (total_len > ssid.SSID_len) {
-			memcpy(command, ssid.SSID, ssid.SSID_len);
-			bytes_written = ssid.SSID_len;
-		} else {
-			return BCME_ERROR;
-		}
-	}
-
-	if ((total_len - bytes_written) >= (strlen(" rssi -XXX") + 1)) {
-		bytes_written += snprintf(&command[bytes_written], total_len - bytes_written,
-		" rssi %d", rssi);
-		command[bytes_written] = '\0';
-	} else {
-		return BCME_ERROR;
+		memcpy(command, ssid.SSID, ssid.SSID_len);
+		bytes_written = ssid.SSID_len;
 	}
 	bytes_written += snprintf(&command[bytes_written], total_len, " rssi %d", rssi);
 	DHD_INFO(("%s: command result is %s (%d)\n", __FUNCTION__, command, bytes_written));
@@ -3588,15 +3576,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		ret = -EINVAL;
 		goto exit;
 	}
-
-	if (priv_cmd.total_len < PRIVATE_COMMAND_DEF_LEN) {
-		buf_size = PRIVATE_COMMAND_DEF_LEN;
-	} else {
-		buf_size = priv_cmd.total_len;
-	}
-
-	command = kmalloc((buf_size + 1), GFP_KERNEL);
-
+	command = kmalloc((priv_cmd.total_len + 1), GFP_KERNEL);
 	if (!command)
 	{
 		DHD_ERROR(("%s: failed to allocate memory\n", __FUNCTION__));
