@@ -380,12 +380,25 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
 		return bh;
 	}
 	ext4_lock_group(sb, block_group);
-	if (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT)) {
-		ext4_init_block_bitmap(sb, bh, block_group, desc);
+	if (ext4_has_group_desc_csum(sb) &&
+	    (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))) {
+		int err;
+
+		if (block_group == 0) {
+			ext4_unlock_group(sb, block_group);
+			unlock_buffer(bh);
+			ext4_error(sb, "Block bitmap for bg 0 marked "
+				   "uninitialized");
+			put_bh(bh);
+			return NULL;
+		}
+		err = ext4_init_block_bitmap(sb, bh, block_group, desc);
 		set_bitmap_uptodate(bh);
 		set_buffer_uptodate(bh);
 		ext4_unlock_group(sb, block_group);
 		unlock_buffer(bh);
+		if (err)
+			ext4_error(sb, "Checksum bad for grp %u", block_group);
 		return bh;
 	}
 	ext4_unlock_group(sb, block_group);
@@ -396,7 +409,7 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
 		 */
 		set_bitmap_uptodate(bh);
 		unlock_buffer(bh);
-		return bh;
+		goto verify;
 	}
 	/*
 	 * submit the buffer_head for reading
@@ -407,6 +420,12 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
 	get_bh(bh);
 	submit_bh(READ, bh);
 	return bh;
+verify:
+	ext4_validate_block_bitmap(sb, desc, block_group, bh);
+	if (buffer_verified(bh))
+		return bh;
+	put_bh(bh);
+	return NULL;
 }
 
 /* Returns 0 on success, 1 on error */
