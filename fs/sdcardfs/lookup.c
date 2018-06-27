@@ -177,12 +177,6 @@ static struct dentry *__sdcardfs_interpose(struct dentry *dentry,
 	lower_inode = lower_path->dentry->d_inode;
 	lower_sb = sdcardfs_lower_super(sb);
 
-	/* check that the lower file system didn't cross a mount point */
-	if (lower_inode->i_sb != lower_sb) {
-		ret_dentry = ERR_PTR(-EXDEV);
-		goto out;
-	}
-
 	/*
 	 * We allocate our new inode below by calling sdcardfs_iget,
 	 * which will initialize some of the new inode's fields
