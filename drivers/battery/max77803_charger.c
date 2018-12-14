@@ -916,13 +916,11 @@ static int sec_chg_get_property(struct power_supply *psy,
 #if defined(max77888_charger)
 		val->intval = max77803_get_input_current(charger);
 #else
-		//AOSP expects the charging current to be in microamperes frameworks/base/core/java/android/os/BatteryManager.java L256
-		val->intval = charger->charging_current_max * 1000;
+		val->intval = charger->charging_current_max;
 #endif
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
-		//AOSP expects the charging current to be in microamperes frameworks/base/core/java/android/os/BatteryManager.java L263
-		val->intval = charger->charging_current * 1000;
+		val->intval = charger->charging_current;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = max77803_get_input_current(charger);
@@ -1160,18 +1158,20 @@ static int sec_chg_set_property(struct power_supply *psy,
 				current_now = usb_charging_current;
 
 			if (charger->cable_type == POWER_SUPPLY_TYPE_MAINS) {
+				if (charger->siop_level < 100 ) {
+					set_charging_current_max =
+						SIOP_INPUT_LIMIT_CURRENT;
+				} else
+					set_charging_current_max =
+						charger->charging_current_max;
+
 				if (charger->siop_level < 100 &&
-				    charger->charging_current_max > SIOP_INPUT_LIMIT_CURRENT)
-					set_charging_current_max = SIOP_INPUT_LIMIT_CURRENT;
-				else
-					set_charging_current_max = charger->charging_current_max;
-
-				max77803_set_input_current(charger, set_charging_current_max);
-
-				if (charger->siop_level < 100)
-					if (current_now > SIOP_CHARGING_LIMIT_CURRENT)
-						current_now = SIOP_CHARGING_LIMIT_CURRENT;
+						current_now > SIOP_CHARGING_LIMIT_CURRENT)
+					current_now = SIOP_CHARGING_LIMIT_CURRENT;
+				max77803_set_input_current(charger,
+					set_charging_current_max);
 			}
+
 			max77803_set_charge_current(charger, current_now);
 
 		}
