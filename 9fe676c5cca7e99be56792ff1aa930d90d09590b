@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e3a1b86d_2a251828",
+        "filename": "drivers/battery/max77803_charger.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 919,
+      "author": {
+        "id": 20640
+      },
+      "writtenOn": "2018-12-15T16:07:53Z",
+      "side": 0,
+      "message": "//this is only extend ampere not work!",
+      "revId": "9fe676c5cca7e99be56792ff1aa930d90d09590b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4034ab15_bb12446d",
+        "filename": "drivers/battery/max77803_charger.c",
+        "patchSetId": 3
+      },
+      "lineNbr": 924,
+      "author": {
+        "id": 20640
+      },
+      "writtenOn": "2018-12-15T16:07:53Z",
+      "side": 0,
+      "message": "//this is only extend ampere not work!",
+      "revId": "9fe676c5cca7e99be56792ff1aa930d90d09590b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
