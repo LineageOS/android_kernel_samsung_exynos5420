@@ -1240,6 +1240,9 @@ static void br_multicast_leave_group(struct net_bridge *br,
 		if (p->port != port)
 			continue;
 
+		if (p->state & MDB_PERMANENT)
+			break;
+
 		if (!hlist_unhashed(&p->mglist) &&
 		    (timer_pending(&p->timer) ?
 		     time_after(p->timer.expires, time) :
